@@ -79,7 +79,7 @@
 
 # This sets up the name of our project.  For our purposes the main thing this controls is
 # the name of the VS solution file.
-project(OptiX-Samples)
+project(OptiX-Advanced-Samples)
 
 # This enforces a particular version of CMake that we require to process the script files
 # properly.
@@ -196,9 +196,6 @@ find_package(OptiX REQUIRED)
 include_directories(
   "${OptiX_INCLUDE}"
   )
-
-# Force the perforce plugin off for the SDK.
-set(USE_PERFORCE OFF CACHE BOOL "This is forced off." FORCE)
 
 ##################################################################
 # SUtil compilation
