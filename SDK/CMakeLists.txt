@@ -309,8 +309,8 @@ if(WIN32)
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${lib} ${path}/${name})
       endfunction()
       
-      # Copy the binary directory into the build
-      file(GLOB dlls "${OptiX_INSTALL_DIR}/bin${bit_dest}/*.dll")
+      # Copy the binary directory into the build.
+      file(GLOB dlls "${OptiX_INSTALL_DIR}/bin${bit_dest}/*.dll" "${OptiX_INSTALL_DIR}/OptiX-win64/bin${bit_dest}/*.dll")
       foreach(file ${dlls})
         copy_dll("${file}")
       endforeach()

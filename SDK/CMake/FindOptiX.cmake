@@ -31,9 +31,9 @@
 # Our initial guess will be within the SDK.
 set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/../" CACHE PATH "Path to OptiX installed location.")
 
-# The distribution contains both 32 and 64 bit libraries.  Adjust the library
-# search path based on the bit-ness of the build.  (i.e. 64: bin64, lib64; 32:
-# bin, lib).  Note that on Mac, the OptiX library is a universal binary, so we
+# Adjust the library search path based on the bit-ness of the build.  
+# (i.e. 64: bin64, lib64; 32: bin, lib).  
+# Note that on Mac, the OptiX library is a universal binary, so we
 # only need to look in lib and not lib64 for 64 bit builds.
 if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT APPLE)
   set(bit_dest "64")
@@ -41,10 +41,19 @@ else()
   set(bit_dest "")
 endif()
 
+# Adjust the library search path based on the OS.  This part of the path does not exist
+# for a distribution that is external to the advanced SDK samples, so we search both
+# with and without it below.
+if(WIN32)
+  set(os_dest "OptiX-win64")
+else()
+  set(os_dest "OptiX-linux64")
+endif()
+
 macro(OPTIX_find_api_library name version)
   find_library(${name}_LIBRARY
     NAMES ${name}.${version} ${name}
-    PATHS "${OptiX_INSTALL_DIR}/lib${bit_dest}"
+    PATHS "${OptiX_INSTALL_DIR}/lib${bit_dest}" "${OptiX_INSTALL_DIR}/${os_dest}/lib${bit_dest}"
     NO_DEFAULT_PATH
     )
   find_library(${name}_LIBRARY
@@ -53,7 +62,7 @@ macro(OPTIX_find_api_library name version)
   if(WIN32)
     find_file(${name}_DLL
       NAMES ${name}.${version}.dll
-      PATHS "${OptiX_INSTALL_DIR}/bin${bit_dest}"
+      PATHS "${OptiX_INSTALL_DIR}/bin${bit_dest}" "${OptiX_INSTALL_DIR}/${os_dest}/bin${bit_dest}"
       NO_DEFAULT_PATH
       )
     find_file(${name}_DLL
@@ -69,7 +78,7 @@ OPTIX_find_api_library(optix_prime 1)
 # Include
 find_path(OptiX_INCLUDE
   NAMES optix.h
-  PATHS "${OptiX_INSTALL_DIR}/include"
+  PATHS "${OptiX_INSTALL_DIR}/include" 
   NO_DEFAULT_PATH
   )
 find_path(OptiX_INCLUDE
