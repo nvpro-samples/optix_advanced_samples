@@ -1,0 +1,44 @@
+In order to compile the samples in the SDK you need the following:
+
+1. CUDA Toolkit. Supported versions are listed in the release notes.  You should
+    also install the latest driver module available after installing the toolkit).
+
+2. CMake 3.0 minimum (http://www.cmake.org/cmake/resources/software.html).  You
+   can use the one in MacPorts or the installation from the CMake website.  The
+   CMake website version also includes a graphical interface to CMake that is
+   identical to the one found in the Windows version.
+   
+3. C++ compiler.  We have tested gcc and clang on Mac OS X 10.9 with Xcode 6.2.
+
+To compile:
+
+Instructions for building.
+1. Create a build directory other than the SDK/ directory.  Using a separate
+   build directory allows multiple builds, differing in flavor, platform, etc.
+   The build directory will need to be writable, so  try to pick one outside of
+   the /Developer section of your hard drive.
+
+2. cd to new directory.
+3. Run
+     $ ccmake <path>
+     or
+     $ env CFLAGS=-m64 CXXFLAGS=-m64 ccmake <path>.
+   where path is the path to the OptiX SDK/ directory.  This will bring up the
+   cmake interface.  Alternatively, to run cmake in non-GUI mode and
+   automatically create makefiles with the default options run 'cmake <path>'
+   and skip to step 8.
+4. Press 'c' within ccmake to begin configure process.
+5. Adjust any options, such as build flavor, by moving cursor to field and
+   hitting <enter>, changing value, and hitting <enter> again.  One field you
+   may want to change is CMAKE_BUILD_TYPE to select a
+   Debug build (it defaults to Release which is an optimized build).
+6. Press 'c' again to finish configure.
+7. Press 'g' to generate Makefiles and exit.
+8. Run
+     $ make
+   to build. Or if you wish to compile a specific sample run
+     $ make <sample>  (e.g. 'make cook')
+   To see a complete list of targets to compile run
+     $ make help
+9. Executables should be found in the <build_dir>/bin directory.  All samples
+   will be deposited in this same directory.
