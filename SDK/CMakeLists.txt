@@ -279,6 +279,7 @@ endfunction()
 # and the CMakeLists.txt file.
 
 add_subdirectory(optixHello)
+add_subdirectory(optixGlass)
 
 
 # Our sutil library.  The rules to build it are found in the subdirectory.
