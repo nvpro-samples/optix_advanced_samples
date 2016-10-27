@@ -540,7 +540,11 @@ int main( int argc, char** argv )
         else
         {
             updateCamera();
-            context->launch( 0, width, height );
+            // Accumulate a few frames for anti-aliasing
+            for ( unsigned int frame = 0; frame < 10; ++frame ) {
+                context["frame"]->setUint( frame );
+                context->launch( 0, width, height );
+            }
             sutil::displayBufferPPM( out_file.c_str(), getOutputBuffer() );
             destroyContext();
         }
