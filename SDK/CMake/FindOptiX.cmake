@@ -45,9 +45,9 @@ endif()
 # for a distribution that is external to the advanced SDK samples, so we search both
 # with and without it below.
 if(WIN32)
-  set(os_dest "OptiX-win64")
+  set(os_dest "OptiX-4.0.1-win64")
 else()
-  set(os_dest "OptiX-linux64")
+  set(os_dest "OptiX-4.0.1-linux64")
 endif()
 
 macro(OPTIX_find_api_library name version)
