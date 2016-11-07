@@ -132,14 +132,13 @@ void createContext()
 {
     // Set up context
     context = Context::create();
-    context->setRayTypeCount( 2 );
+    context->setRayTypeCount( 1 );
     context->setEntryPointCount( 1 );
     context->setStackSize( 2800 );
 
     // Note: high max depth for reflection and refraction through glass
     context["max_depth"]->setInt( 10 );
     context["radiance_ray_type"]->setUint( 0 );
-    context["shadow_ray_type"]->setUint( 1 );
     context["frame"]->setUint( 0u );
     context["scene_epsilon"]->setFloat( 1.e-3f );
 
@@ -181,11 +180,9 @@ Material createMaterial( const float3& extinction )
 {
     const std::string ptx_path = ptxPath( "glass.cu" );
     Program ch_program = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
-    Program ah_program = context->createProgramFromPTXFile( ptx_path, "any_hit_shadow" );
 
     Material material = context->createMaterial();
     material->setClosestHitProgram( 0, ch_program );
-    material->setAnyHitProgram( 1, ah_program );
 
     material["importance_cutoff"  ]->setFloat( 0.01f );
     material["cutoff_color"       ]->setFloat( 0.2f, 0.2f, 0.2f );
@@ -198,7 +195,6 @@ Material createMaterial( const float3& extinction )
     material["refraction_maxdepth"]->setInt( 10 );
     material["reflection_maxdepth"]->setInt( 5 );
     material["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );
-    material["shadow_attenuation"]->setFloat( 1.0f, 1.0f, 1.0f );
 
     return material;
 }

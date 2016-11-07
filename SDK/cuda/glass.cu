@@ -29,7 +29,6 @@ rtDeclareVariable(rtObject,     top_object, , );
 rtDeclareVariable(float,        scene_epsilon, , );
 rtDeclareVariable(int,          max_depth, , );
 rtDeclareVariable(unsigned int, radiance_ray_type, , );
-rtDeclareVariable(unsigned int, shadow_ray_type, , );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
 rtDeclareVariable(float3, front_hit_point, attribute front_hit_point, );
 rtDeclareVariable(float3, back_hit_point, attribute back_hit_point, );
@@ -56,13 +55,7 @@ struct PerRayData_radiance
   int depth;
 };
 
-struct PerRayData_shadow
-{
-  float3 attenuation;
-};
-
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
-rtDeclareVariable(PerRayData_shadow,   prd_shadow,   rtPayload, );
 
 // -----------------------------------------------------------------------------
 
@@ -149,21 +142,4 @@ RT_PROGRAM void closest_hit_radiance()
   prd_radiance.result = result;
 }
 
-// -----------------------------------------------------------------------------
 
-//
-// Attenuates shadow rays for shadowing transparent objects
-//
-rtDeclareVariable(float3, shadow_attenuation, , );
-
-RT_PROGRAM void any_hit_shadow()
-{
-  float3 world_normal = normalize( rtTransformNormal( RT_OBJECT_TO_WORLD, shading_normal ) );
-  float nDi = fabs(dot(world_normal, ray.direction));
-
-  prd_shadow.attenuation *= 1-fresnel_schlick(nDi, 5, 1-shadow_attenuation, make_float3(1));
-  if(optix::luminance(prd_shadow.attenuation) < importance_cutoff)
-    rtTerminateRay();
-  else
-    rtIgnoreIntersection();
-}
