@@ -96,6 +96,9 @@ allowed_percentage = 3
 # Args
 bindir  = sys.argv[1] + '/'
 tmpdir  = sys.argv[2] + '/'
+logfile = ''
+if len(sys.argv) > 3 :
+    logfile = sys.argv[3]
 golddir = os.path.abspath( os.path.dirname( sys.argv[0] ) ) + '/'  # directory containing python script
 
 # Add new samples here and create a .gold.ppm image in the current directory.
@@ -110,7 +113,7 @@ for s in samples:
     # Run sample
     result_file = tmpdir + s + '.ppm'
     cmd_args = [bindir + s, '-f', result_file]
-    print( "\nRunning cmd <<<{}>>>".format( ' '.join( cmd_args ) ) )
+    print( "\tRunning cmd <<<{}>>>".format( ' '.join( cmd_args ) ) )
     try:
         subprocess.check_call( cmd_args )
     except subprocess.CalledProcessError as err:
@@ -130,7 +133,11 @@ for s in samples:
         pass_count += 1
 
 print "\n{} tests total, {} passed, {} failed".format( len(samples), pass_count, fail_count + exception_count )
+if logfile :
+    print "Writing log file: " + logfile
+    open( logfile, 'w+' ).write("tests total, {} passed, {} failed".format( len(samples), pass_count, fail_count + exception_count) )
+    
 assert pass_count + fail_count + exception_count == len(samples)
 
-# python test.py ../SDK/build/bin /tmp
 
+# python test.py ../SDK/build/bin /tmp [logfile]
