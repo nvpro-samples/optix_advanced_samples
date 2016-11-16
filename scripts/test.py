@@ -134,7 +134,6 @@ for s in samples:
 
 print "\n{} tests total, {} passed, {} failed".format( len(samples), pass_count, fail_count + exception_count )
 if logfile :
-    print "Writing log file: " + logfile
     open( logfile, 'w+' ).write("tests total, {} passed, {} failed\n".format( len(samples), pass_count, fail_count + exception_count) )
     
 assert pass_count + fail_count + exception_count == len(samples)
