@@ -104,38 +104,6 @@ golddir = os.path.abspath( os.path.dirname( sys.argv[0] ) ) + '/'  # directory c
 # Add new samples here and create a .gold.ppm image in the current directory.
 samples = [ 'optixGlass' ]
 
-
-pass_count = 0;
-fail_count = 0;
-exception_count = 0;
-
-for s in samples:
-
-    # Run sample
-    result_file = tmpdir + s + '.ppm'
-    cmd_args = [bindir + s, '-f', result_file]
-    print( "\tRunning cmd <<<{}>>>".format( ' '.join( cmd_args ) ) )
-    try:
-        subprocess.check_call( cmd_args )
-    except subprocess.CalledProcessError as err:
-        print "Caught error: {}".format(err)
-        exception_count += 1
-        continue
-
-    # Diff result against gold image
-    gold_file = golddir + s + '.gold.ppm' 
-    diff_file = tmpdir + s + '.diff.ppm'
-    if ppm_compare( result_file, gold_file, diff_file, diff_threshold, allowed_percentage ):
-        print "Rendered file: " + result_file
-        print "    Gold file: " + gold_file
-        print "    Diff file: " + diff_file
-        fail_count += 1
-    else:
-        pass_count += 1
-
-print "\n{} tests total, {} passed, {} failed".format( len(samples), pass_count, fail_count + exception_count )
-if logfile :
-    open( logfile, 'w+' ).write("
 pass_count = 0;
 fail_count = 0;
 exception_count = 0;
