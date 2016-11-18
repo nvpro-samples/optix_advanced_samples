@@ -132,9 +132,9 @@ for s in samples:
     else:
         pass_count += 1
 
-print "\n{0} tests total, {0} passed, {0} failed".format( len(samples), pass_count, fail_count + exception_count )
+print "\n{0} tests total, {1} passed, {2} failed".format( len(samples), pass_count, fail_count + exception_count )
 if logfile :
-    open( logfile, 'w+' ).write("{0} tests total, {0} passed, {0} failed\n".format( len(samples), pass_count, fail_count + exception_count) )
+    open( logfile, 'w+' ).write("{0} tests total, {1} passed, {2} failed\n".format( len(samples), pass_count, fail_count + exception_count) )
     
 assert pass_count + fail_count + exception_count == len(samples)
 
