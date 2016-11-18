@@ -113,11 +113,11 @@ for s in samples:
     # Run sample
     result_file = tmpdir + s + '.ppm'
     cmd_args = [bindir + s, '-f', result_file]
-    print( "\tRunning cmd <<<{}>>>".format( ' '.join( cmd_args ) ) )
+    print( "\tRunning cmd <<<{0}>>>".format( ' '.join( cmd_args ) ) )
     try:
         subprocess.check_call( cmd_args )
     except subprocess.CalledProcessError as err:
-        print "Caught error: {}".format(err)
+        print "Caught error: {0}".format(err)
         exception_count += 1
         continue
 
@@ -132,9 +132,9 @@ for s in samples:
     else:
         pass_count += 1
 
-print "\n{} tests total, {} passed, {} failed".format( len(samples), pass_count, fail_count + exception_count )
+print "\n{0} tests total, {0} passed, {0} failed".format( len(samples), pass_count, fail_count + exception_count )
 if logfile :
-    open( logfile, 'w+' ).write("{} tests total, {} passed, {} failed\n".format( len(samples), pass_count, fail_count + exception_count) )
+    open( logfile, 'w+' ).write("{0} tests total, {0} passed, {0} failed\n".format( len(samples), pass_count, fail_count + exception_count) )
     
 assert pass_count + fail_count + exception_count == len(samples)
 
