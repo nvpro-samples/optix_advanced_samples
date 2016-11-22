@@ -19,16 +19,11 @@
 #  SUCH DAMAGES
 #
 
-if(GLUT_FOUND AND OPENGL_FOUND)
-  include_directories(${GLUT_INCLUDE_DIR})
+# For commonStructs.h
+include_directories(${SAMPLES_CUDA_DIR})
 
-  # For commonStructs.h
-  include_directories(${SAMPLES_CUDA_DIR})
-
-  add_definitions(-DGLUT_FOUND -DGLUT_NO_LIB_PRAGMA)
-
-  # See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
-  OPTIX_add_sample_executable( optixGlass
+# See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
+OPTIX_add_sample_executable( optixGlass
     optixGlass.cpp
 
     ${SAMPLES_CUDA_DIR}/accum_camera.cu
@@ -37,9 +32,6 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     ${SAMPLES_CUDA_DIR}/triangle_mesh_iterative.cu
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
+    ${IMGUI_SOURCES}
     )
 
-else()
-  # GLUT or OpenGL not found
-  message("Disabling optixGlass, which requires glut and opengl.")
-endif()

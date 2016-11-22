@@ -130,7 +130,9 @@ if(USING_CLANG_C)
 endif()
 
 # Find at least a 2.3 version of CUDA.
-find_package(CUDA 2.3 REQUIRED)
+find_package(CUDA 7.0 REQUIRED)
+find_package(glfw3 REQUIRED)
+find_package(OpenGL REQUIRED)
 
 # Present the CUDA_64_BIT_DEVICE_CODE on the default set of options.
 mark_as_advanced(CLEAR CUDA_64_BIT_DEVICE_CODE)
@@ -222,9 +224,13 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/sutil
                      ${CMAKE_CURRENT_BINARY_DIR}
                      ${CUDA_INCLUDE_DIRS} )
 
-include(FindSUtilGLUT)
 
 set(SAMPLES_CUDA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cuda)
+
+##################################################################
+# IMGUI compilation
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/support )
+add_subdirectory( support/imgui )
 
 #########################################################
 # OPTIX_add_sample_executable
@@ -259,11 +265,16 @@ function(OPTIX_add_sample_executable target_name)
     ${cmake_options}
     )
 
+  include_directories(
+      "${OPENGL_INCLUDE_DIR}"
+      )
+
   # Most of the samples link against the sutil library and the optix library.  Here is the
   # rule that specifies this linkage.
   target_link_libraries( ${target_name}
     sutil_sdk
     optix
+    ${OPENGL_gl_LIBRARY}
     ${optix_rpath}
     )
   if(USING_GNU_CXX)

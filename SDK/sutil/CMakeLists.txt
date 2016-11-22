@@ -74,10 +74,8 @@ if(OPENGL_FOUND AND NOT APPLE)
   
 endif()
 
-if(GLUT_FOUND AND OPENGL_FOUND)
-  include_directories(${GLUT_INCLUDE_DIR})
-  add_definitions(-DGLUT_FOUND -DGLUT_NO_LIB_PRAGMA)
-
+if(GLFW_FOUND AND OPENGL_FOUND)
+    include_directories(${GLFW_INCLUDE_DIR})
 endif()
 
 
@@ -93,7 +91,8 @@ CUDA_COMPILE_PTX(ptx_files ${sources})
 set(sutil_target "sutil_sdk")
 add_library(${sutil_target} ${sources} ${ptx_files})
 
-# Use gcc rather than g++ to link if we are linking statically against libgcc_s and libstdc++
+# Use gcc rather than g++ to link if we are linking statically against libgcc_s
+# and libstdc++
 if(USING_GNU_C OR USING_GNU_CXX)
   if(GCC_LIBSTDCPP_HACK)
     set_target_properties(${sutil_target} PROPERTIES LINKER_LANGUAGE "C")
@@ -101,12 +100,13 @@ if(USING_GNU_C OR USING_GNU_CXX)
   endif()
 endif()
 
-# Note that if the GLUT_LIBRARIES and OPENGL_LIBRARIES haven't been looked for,
-# these variable will be empty.
+# Note that if the GLFW and OPENGL_LIBRARIES haven't been looked for, these
+# variable will be empty.
 target_link_libraries(${sutil_target}
   optix
   optixu
-  ${GLUT_LIBRARIES}
+  glfw 
+  imgui 
   ${OPENGL_LIBRARIES}
   )
 if(WIN32)
@@ -114,23 +114,6 @@ if(WIN32)
 endif()
 add_perforce_to_target( ${sutil_target} )
 
-# Copy the free glut dlls as part of the sutil build process
-if(WIN32)
-  if(CMAKE_GENERATOR MATCHES "Visual Studio")
-    set( build_configuration "$(ConfigurationName)" )
-  else()
-    set( build_configuration "${CMAKE_BUILD_TYPE}")
-  endif()
-
-  add_custom_command(TARGET ${sutil_target}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-    -D build_configuration:STRING=${build_configuration}
-    -D "output_directory:PATH=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}"
-    -D "source_dll:FILE=${GLUT_glut_DLL}"
-    -P "${CMAKE_SOURCE_DIR}/CMake/CopyDLL.cmake"
-    )
-endif()
 
 if(RELEASE_INSTALL_BINARY_SAMPLES AND NOT RELEASE_STATIC_BUILD)
   # If performing a release install, we want to use rpath for our install name.
