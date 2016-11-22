@@ -32,6 +32,5 @@ OPTIX_add_sample_executable( optixGlass
     ${SAMPLES_CUDA_DIR}/triangle_mesh_iterative.cu
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
-    ${IMGUI_SOURCES}
     )
 
