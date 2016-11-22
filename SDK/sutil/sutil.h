@@ -53,6 +53,8 @@
   } while(0)
 
 
+struct GLFWwindow;
+
 namespace sutil
 {
 
@@ -99,18 +101,17 @@ void SUTILAPI resizeBuffer(
         unsigned width,                     // New buffer width
         unsigned height );                  // New buffer height
 
-// Initialize GLUT.  Should be called before any GLUT display functions.
-void SUTILAPI initGlut(
-        int* argc,                          // Pointer to main argc param
-        char** argv);                       // Pointer to main argv param
+// Initialize GLFW.  Should be called before any GLFW display functions.
+// Returns the root GLFWwindow.
+SUTILAPI GLFWwindow* initGLFW();
 
-// Create GLUT window and display contents of the buffer.
-void SUTILAPI displayBufferGlut(
+// Create GLFW window and display contents of the buffer.
+void SUTILAPI displayBufferGLFW(
         const char* window_title,           // Window title
         optix::Buffer buffer);              // Buffer to be displayed
 
-// Create GLUT window and display contents of the buffer (C API version).
-void SUTILAPI displayBufferGlut(
+// Create GLFW window and display contents of the buffer (C API version).
+void SUTILAPI displayBufferGLFW(
         const char* window_title,           // Window title
         RTbuffer buffer);                   // Buffer to be displayed
 
@@ -125,13 +126,14 @@ void SUTILAPI displayBufferPPM(
         RTbuffer buffer);                   // Buffer to be displayed
 
 
-// Display contents of buffer, where the OpenGL/GLUT context is managed by caller.
+// Display contents of buffer, where the OpenGL context is managed by caller.
 void SUTILAPI displayBufferGL(
         optix::Buffer buffer ); // Buffer to be displayed
         
-// Display frames per second, where the OpenGL/GLUT context
+// Display frames per second, where the OpenGL context
 // is managed by the caller.
-void SUTILAPI displayFps( unsigned total_frame_count );
+void SUTILAPI displayFps(
+        unsigned total_frame_count );    // total frame count
 
 // Create on OptiX TextureSampler for the given image file.  If the filename is
 // empty or if loading the file fails, return 1x1 texture with default color.

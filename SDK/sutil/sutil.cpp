@@ -28,38 +28,41 @@
 
 
 // Note: wglew.h has to be included before sutil.h on Windows
-#if defined(__APPLE__)
-#  include <GLUT/glut.h>
-#else
+#ifndef  __APPLE__
 #  include <GL/glew.h>
 #  if defined(_WIN32)
 #    include <GL/wglew.h>
 #  endif
-#  include <GL/glut.h>
 #endif
+
+#include <GLFW/glfw3.h>
 
 #include <sutil/sutil.h>
 #include <sutil/HDRLoader.h>
 #include <sutil/PPMLoader.h>
 #include <sampleConfig.h>
 
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_glfw.h>
+
 #include <optixu/optixu_math_namespace.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <fstream>
 #include <stdint.h>
 
 #if defined(_WIN32)
-#    ifndef WIN32_LEAN_AND_MEAN
-#        define WIN32_LEAN_AND_MEAN 1
-#    endif
-#    include<windows.h>
-#    include<mmsystem.h>
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN 1
+#  endif
+#  include<windows.h>
+#  include<mmsystem.h>
 #else // Apple and Linux both use this 
-#    include<sys/time.h>
-#    include <unistd.h>
-#    include <dirent.h>
+#  include<sys/time.h>
+#  include <unistd.h>
+#  include <dirent.h>
 #endif
 
 
@@ -70,19 +73,34 @@ namespace
 {
 
 // Global variables for GLUT display functions
-RTcontext g_context           = 0;
-RTbuffer  g_image_buffer      = 0;
-bool      g_glut_initialized  = false;
+RTcontext   g_context           = 0;
+RTbuffer    g_image_buffer      = 0;
+GLFWwindow* g_window            = 0; 
+bool        g_glfw_initialized  = false;
 
 
-void keyPressed(unsigned char key, int x, int y)
+void errorCallback(int error, const char* description)                   
+{                                                                                
+    std::cerr << "GLFW Error " << error << ": " << description << std::endl;           
+}
+
+
+void keyCallback( GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/ )
 {
-    switch (key)
+    if( action == GLFW_PRESS )
     {
-        case 27: // esc
-        case 'q':
-            rtContextDestroy( g_context );
-            exit(EXIT_SUCCESS);
+        switch( key )
+        {
+            case GLFW_KEY_Q: // esc
+            case GLFW_KEY_ESCAPE:
+                if( g_context )
+                    rtContextDestroy( g_context );
+                if( g_window )
+                    glfwDestroyWindow( g_window );
+                glfwTerminate();
+                ImGui_ImplGlfw_Shutdown();
+                exit(EXIT_SUCCESS);
+        }
     }
 }
 
@@ -135,7 +153,7 @@ void display()
     // Now unmap the buffer
     RT_CHECK_ERROR( rtBufferUnmap( g_image_buffer ) );
 
-    glutSwapBuffers();
+    glfwSwapBuffers( g_window );
 }
 
 
@@ -315,28 +333,41 @@ void sutil::resizeBuffer( optix::Buffer buffer, unsigned width, unsigned height 
 }
 
 
-void sutil::initGlut( int* argc, char** argv)
+GLFWwindow* sutil::initGLFW()
 {
-    // Initialize GLUT
-    glutInit( argc, argv );
-    glutInitDisplayMode( GLUT_RGB | GLUT_ALPHA | GLUT_DOUBLE );
-    glutInitWindowSize( 100, 100 );
-    glutInitWindowPosition( 100, 100 );
-    glutCreateWindow( argv[0] );
-    g_glut_initialized = true;
+    // Initialize GLFW
+    if( !glfwInit() )
+        throw Exception( "glfwInit failed.");
+
+    glfwSetErrorCallback( errorCallback );
+
+    g_window = glfwCreateWindow(100, 100, "", NULL, NULL);
+    if (!g_window)
+        throw Exception( "GLFW window or GL context creation failed.");
+    glfwMakeContextCurrent( g_window );
+    glfwSetWindowPos( g_window, 100, 100 );
+
+    glfwSetKeyCallback( g_window, keyCallback );
+
+    g_glfw_initialized = true;
+    
+    ImGui_ImplGlfw_Init( g_window, false );
+
+    return g_window;
 }
 
 
-void sutil::displayBufferGlut( const char* window_title, Buffer buffer )
+void sutil::displayBufferGLFW( const char* window_title, Buffer buffer )
 {
-    displayBufferGlut(window_title, buffer->get() );
+    displayBufferGLFW(window_title, buffer->get() );
 }
 
 
-void sutil::displayBufferGlut( const char* window_title, RTbuffer buffer )
+void sutil::displayBufferGLFW( const char* window_title, RTbuffer buffer )
 {
-    if( !g_glut_initialized )
-        throw Exception( "displayGlutWindow called before initGlut.");
+    if( !g_glfw_initialized )
+        throw Exception( "displayGLFWWindow called before initGLFW.");
+
 
     checkBuffer(buffer);
     g_image_buffer = buffer;
@@ -346,8 +377,9 @@ void sutil::displayBufferGlut( const char* window_title, RTbuffer buffer )
 
     GLsizei width  = static_cast<int>( buffer_width );
     GLsizei height = static_cast<int>( buffer_height );
-    glutSetWindowTitle(window_title);
-    glutReshapeWindow( width, height ); 
+    
+    glfwSetWindowTitle( g_window, window_title );
+    glfwSetWindowSize( g_window, width, height );
 
     // Init state
     glMatrixMode(GL_PROJECTION);
@@ -356,11 +388,19 @@ void sutil::displayBufferGlut( const char* window_title, RTbuffer buffer )
     
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    
+    while( !glfwWindowShouldClose( g_window ) )
+    {
+        glfwPollEvents();                                                        
+        display();
+    }
 
-    glutKeyboardFunc(keyPressed);
-    glutDisplayFunc(display);
-
-    glutMainLoop();
+    if( g_context )
+        rtContextDestroy( g_context );
+    
+    glfwDestroyWindow( g_window );
+    glfwTerminate();
+    ImGui_ImplGlfw_Shutdown();
 }
 
 
@@ -603,37 +643,10 @@ void sutil::displayBufferGL( optix::Buffer buffer )
         glDisable(GL_FRAMEBUFFER_SRGB_EXT);
 }
 
+
 namespace
 {
-
-void drawText( const std::string& text, float x, float y, void* font )
-{
-    // Save state
-    glPushAttrib( GL_CURRENT_BIT | GL_ENABLE_BIT );
-
-    glDisable( GL_TEXTURE_2D );
-    glDisable( GL_LIGHTING );
-    glDisable( GL_DEPTH_TEST);
-
-    static const float3 shadow_color = make_float3( 0.10f );
-    glColor3fv( &( shadow_color.x) ); // drop shadow
-    // Shift shadow one pixel to the lower right.
-    glWindowPos2f(x + 1.0f, y - 1.0f);
-    for( std::string::const_iterator it = text.begin(); it != text.end(); ++it )
-        glutBitmapCharacter( font, *it );
-
-    static const float3 text_color = make_float3( 0.95f );
-    glColor3fv( &( text_color.x) );        // main text
-    glWindowPos2f(x, y);
-    for( std::string::const_iterator it = text.begin(); it != text.end(); ++it )
-        glutBitmapCharacter( font, *it );
-
-    // Restore state
-    glPopAttrib();
-}
-
-static const float FPS_UPDATE_INTERVAL = 0.5;  //seconds
-
+    const float FPS_UPDATE_INTERVAL = 0.5;  //seconds
 } // namespace
 
 
@@ -650,9 +663,23 @@ void sutil::displayFps( unsigned int frame_count )
         last_update_time = current_time;
     }
     if ( frame_count > 0 && fps >= 0.0 ) {
-        static char fps_text[32];
-        sprintf( fps_text, "fps: %7.2f", fps );
-        drawText( fps_text, 10.0f, 10.0f, GLUT_BITMAP_8_BY_13 );
+        ImGui_ImplGlfw_NewFrame();
+
+        ImGui::SetNextWindowPos( ImVec2( 2.0f, 2.0f ) );
+        ImGui::Begin("fps", 0,
+                ImGuiWindowFlags_NoTitleBar |
+                ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoInputs
+                );
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,   ImVec2(0,0) );
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,          0.6f        );
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f        );
+
+        ImGui::Text( "fps: %7.2f", fps );
+        ImGui::End();
+        ImGui::Render();
     }
 }
 

@@ -32,17 +32,14 @@
 //
 //-----------------------------------------------------------------------------
 
-#ifdef __APPLE__
-#  include <GLUT/glut.h>
-#else
+#ifndef __APPLE__
 #  include <GL/glew.h>
 #  if defined( _WIN32 )
-#  include <GL/wglew.h>
-#  include <GL/freeglut.h>
-#  else
-#  include <GL/glut.h>
+#    include <GL/wglew.h>
 #  endif
 #endif
+
+#include <GLFW/glfw3.h>
 
 #include <optixu/optixpp_namespace.h>
 #include <optixu/optixu_math_stream_namespace.h>
@@ -52,6 +49,7 @@
 #include <Arcball.h>
 #include <OptiXMesh.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <stdint.h>
@@ -67,22 +65,21 @@ const char* const SAMPLE_NAME = "optixGlass";
 //------------------------------------------------------------------------------
 
 Context      context;
-uint32_t     width  = 768u;
-uint32_t     height = 576u;
-bool         use_pbo = true;
+uint32_t     width    = 768u;
+uint32_t     height   = 576u;
+bool         use_pbo  = true;
+GLFWwindow*  g_window = 0; 
 
 // Camera state
-float3       camera_up;
-float3       camera_lookat;
-float3       camera_eye;
-Matrix4x4    camera_rotate;
-bool         camera_dirty = true;  // Do camera params need to be copied to OptiX context
+float3         camera_up;
+float3         camera_lookat;
+float3         camera_eye;
+Matrix4x4      camera_rotate;
+bool           camera_dirty = true;  // Do camera params need to be copied to OptiX context
 sutil::Arcball arcball;
 
 // Mouse state
-int2       mouse_prev_pos;
-int        mouse_button;
-
+float2       mouse_prev_pos;
 
 
 //------------------------------------------------------------------------------
@@ -90,8 +87,14 @@ int        mouse_button;
 //  Helper functions
 //
 //------------------------------------------------------------------------------
+    
 
-std::string ptxPath( const std::string& cuda_file )
+static void errorCallback(int error, const char* description)                   {                                                                                
+    std::cerr << "GLFW Error " << error << ": " << description << std::endl;           
+}
+
+
+static std::string ptxPath( const std::string& cuda_file )
 {
     return
         std::string(sutil::samplesPTXDir()) +
@@ -101,7 +104,7 @@ std::string ptxPath( const std::string& cuda_file )
 }
 
 
-Buffer getOutputBuffer()
+static Buffer getOutputBuffer()
 {
     return context[ "output_buffer" ]->getBuffer();
 }
@@ -114,17 +117,6 @@ void destroyContext()
         context->destroy();
         context = 0;
     }
-}
-
-
-void registerExitHandler()
-{
-    // register shutdown handler
-#ifdef _WIN32
-    glutCloseFunc( destroyContext );  // this function is freeglut-only
-#else
-    atexit( destroyContext );
-#endif
 }
 
 
@@ -173,8 +165,8 @@ void createContext()
     bg_up.y += 1.0f;
     bg_up = normalize(bg_up);
     context["up"]->setFloat( bg_up.x, bg_up.y, bg_up.z );
-
 }
+
 
 Material createMaterial( const float3& extinction )
 {
@@ -200,7 +192,10 @@ Material createMaterial( const float3& extinction )
 }
 
 
-void createGeometry( const std::vector<std::string>& filenames, const std::vector<optix::Matrix4x4>& xforms, Material material )
+void createGeometry(
+        const std::vector<std::string>& filenames,
+        const std::vector<optix::Matrix4x4>& xforms, Material material
+        )
 {
 
     const std::string ptx_path = ptxPath( "triangle_mesh_iterative.cu" );
@@ -223,7 +218,6 @@ void createGeometry( const std::vector<std::string>& filenames, const std::vecto
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
     context[ "top_object"   ]->set( geometry_group ); 
-
 }
 
 
@@ -277,73 +271,54 @@ void updateCamera()
 }
 
 
-
 //------------------------------------------------------------------------------
 //
-//  GLUT callbacks
+//  GLFW callbacks
 //
 //------------------------------------------------------------------------------
 
-void glutDisplay()
+void keyCallback( GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/ )
 {
-    static unsigned int accumulation_frame = 0;
-    if( camera_dirty ) {
-        updateCamera();
-        accumulation_frame = 0;
-    }
-
-    context["frame"]->setUint( accumulation_frame++ );
-    context->launch( 0, width, height );
-
-    sutil::displayBufferGL( getOutputBuffer() );
-
+    if( action == GLFW_PRESS )
     {
-        static unsigned frame_count = 0;
-        sutil::displayFps( frame_count++ );
-    }
-
-    glutSwapBuffers();
-}
-
-
-void glutKeyboardPress( unsigned char k, int x, int y )
-{
-    switch( k )
-    {
-        case( 'q' ):
-        case( 27 ): // ESC
+        switch( key )
         {
-            destroyContext();
-            exit(0);
-        }
-        case( 's' ):
-        {
-            const std::string outputImage = std::string(SAMPLE_NAME) + ".ppm";
-            std::cerr << "Saving current frame to '" << outputImage << "'\n";
-            sutil::displayBufferPPM( outputImage.c_str(), getOutputBuffer() );
-            break;
+            case GLFW_KEY_Q: // esc
+            case GLFW_KEY_ESCAPE:
+                if( context )
+                    context->destroy();
+                if( g_window )
+                    glfwDestroyWindow( g_window );
+                glfwTerminate();
+                exit(EXIT_SUCCESS);
+
+            case( GLFW_KEY_S ):
+            {
+                const std::string outputImage = std::string(SAMPLE_NAME) + ".ppm";
+                std::cerr << "Saving current frame to '" << outputImage << "'\n";
+                sutil::displayBufferPPM( outputImage.c_str(), getOutputBuffer() );
+                break;
+            }
         }
     }
 }
 
 
-void glutMousePress( int button, int state, int x, int y )
+void mouseButtonCallback( GLFWwindow* window, int button, int action, int mods )
 {
-    if( state == GLUT_DOWN )
-    {
-        mouse_button = button;
-        mouse_prev_pos = make_int2( x, y );
-    }
-    else
-    {
-        // nothing
-    }
+   if( button == GLFW_MOUSE_BUTTON_RIGHT ||
+       button == GLFW_MOUSE_BUTTON_LEFT )
+   {
+       double x, y;
+       glfwGetCursorPos( window, &x, &y );
+       mouse_prev_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
+   }
 }
 
 
-void glutMouseMotion( int x, int y)
+void cursorPosCallback( GLFWwindow* window, double x, double y )
 {
-    if( mouse_button == GLUT_RIGHT_BUTTON )
+    if( glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_RIGHT ) == GLFW_PRESS )
     {
         const float dx = static_cast<float>( x - mouse_prev_pos.x ) /
                          static_cast<float>( width );
@@ -354,7 +329,7 @@ void glutMouseMotion( int x, int y)
         camera_eye = camera_eye + (camera_lookat - camera_eye)*scale;
         camera_dirty = true;
     }
-    else if( mouse_button == GLUT_LEFT_BUTTON )
+    else if( glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS )
     {
         const float2 from = { static_cast<float>(mouse_prev_pos.x),
                               static_cast<float>(mouse_prev_pos.y) };
@@ -368,11 +343,11 @@ void glutMouseMotion( int x, int y)
         camera_dirty = true;
     }
 
-    mouse_prev_pos = make_int2( x, y );
+    mouse_prev_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
 }
 
 
-void glutResize( int w, int h )
+void windowSizeCallback( GLFWwindow* window, int w, int h )
 {
     width  = w;
     height = h;
@@ -385,22 +360,26 @@ void glutResize( int w, int h )
     glLoadIdentity();
     glOrtho(0, 1, 0, 1, -1, 1);
     glViewport(0, 0, width, height);
-    glutPostRedisplay();
 }
 
 
-void glutInitialize( int* argc, char** argv )
+//------------------------------------------------------------------------------
+//
+// GLFW setup and run 
+//
+//------------------------------------------------------------------------------
+
+void glfwInitialize()
 {
-    glutInit( argc, argv );
-    glutInitDisplayMode( GLUT_RGB | GLUT_ALPHA | GLUT_DEPTH | GLUT_DOUBLE );
-    glutInitWindowSize( width, height );
-    glutInitWindowPosition( 100, 100 );
-    glutCreateWindow( SAMPLE_NAME );
-    glutHideWindow();
+    g_window = sutil::initGLFW();
+    glfwSetKeyCallback( g_window, keyCallback );
+    glfwSetWindowSize( g_window, width, height );
+    glfwSetCursorPosCallback( g_window, cursorPosCallback );
+    glfwSetWindowSizeCallback( g_window, windowSizeCallback );
 }
 
 
-void glutRun()
+void glfwRun()
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -410,22 +389,30 @@ void glutRun()
     glLoadIdentity();
     glViewport(0, 0, width, height);
 
-    glutShowWindow();
-    glutReshapeWindow( width, height);
+    unsigned int accumulation_frame = 0;
+    unsigned int frame_count = 0;
 
-    // register glut callbacks
-    glutDisplayFunc( glutDisplay );
-    glutIdleFunc( glutDisplay );
-    glutReshapeFunc( glutResize );
-    glutKeyboardFunc( glutKeyboardPress );
-    glutMouseFunc( glutMousePress );
-    glutMotionFunc( glutMouseMotion );
+    while( !glfwWindowShouldClose( g_window ) )
+    {
+        glfwPollEvents();                                                        
+        if( camera_dirty ) {
+            updateCamera();
+            accumulation_frame = 0;
+        }
 
-    registerExitHandler();
+        context["frame"]->setUint( accumulation_frame++ );
+        context->launch( 0, width, height );
 
-    glutMainLoop();
+        sutil::displayBufferGL( getOutputBuffer() );
+        sutil::displayFps( frame_count++ );
+
+        glfwSwapBuffers( g_window );
+    }
+    
+    destroyContext();
+    glfwDestroyWindow( g_window );
+    glfwTerminate();
 }
-
 
 
 //------------------------------------------------------------------------------
@@ -450,6 +437,7 @@ void printUsageAndExit( const std::string& argv0 )
 
     exit(1);
 }
+
 
 int main( int argc, char** argv )
 {
@@ -496,10 +484,15 @@ int main( int argc, char** argv )
 
     try
     {
-        glutInitialize( &argc, argv );
+        glfwInitialize();
 
 #ifndef __APPLE__
-        glewInit();
+        GLenum err = glewInit();
+        if (err != GLEW_OK)
+        {
+            std::cerr << "GLEW init failed: " << glewGetErrorString( err ) << std::endl;
+            exit(EXIT_FAILURE);
+        }
 #endif
 
         createContext();
@@ -531,7 +524,7 @@ int main( int argc, char** argv )
 
         if ( out_file.empty() )
         {
-            glutRun();
+            glfwRun();
         }
         else
         {

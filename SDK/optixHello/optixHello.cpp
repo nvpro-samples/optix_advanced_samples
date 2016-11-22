@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 
         outfile[0] = '\0';
 
-        sutil::initGlut( &argc, argv );
+        sutil::initGLFW();
 
         for( i = 1; i < argc; ++i ) {
             if( strcmp( argv[i], "--help" ) == 0 || strcmp( argv[i], "-h" ) == 0 ) {
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
 
         /* Display image */
         if( strlen( outfile ) == 0 ) {
-            sutil::displayBufferGlut( argv[0], buffer );
+            sutil::displayBufferGLFW( argv[0], buffer );
         } else {
             sutil::displayBufferPPM( outfile, buffer );
         }
