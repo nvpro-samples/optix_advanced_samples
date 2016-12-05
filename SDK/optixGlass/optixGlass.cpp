@@ -67,26 +67,16 @@ const char* const SAMPLE_NAME = "optixGlass";
 //
 //------------------------------------------------------------------------------
 
-Context      context;
+Context      context = 0;
 uint32_t     width    = 768u;
 uint32_t     height   = 576u;
-bool         use_pbo  = true;
 GLFWwindow*  g_window = 0; 
-
-float3 glass_extinction = make_float3( 1.0f, 1.0f, 1.0f );
 
 // Camera state
 float3         camera_up;
 float3         camera_lookat;
 float3         camera_eye;
 Matrix4x4      camera_rotate;
-bool           camera_dirty = true;  // Do camera params need to be copied to OptiX context
-sutil::Arcball arcball;
-
-// Mouse state
-float2       mouse_pos = make_float2( 0.0f, 0.0f );
-bool         mouse_left_button_down = false;
-bool         mouse_right_button_down = false;
 
 
 //------------------------------------------------------------------------------
@@ -127,7 +117,7 @@ void destroyContext()
 }
 
 
-void createContext()
+void createContext( bool use_pbo )
 {
     // Set up context
     context = Context::create();
@@ -230,16 +220,6 @@ void createGeometry(
 }
 
 
-void setupCamera()
-{
-    camera_eye    = make_float3( 14.0f, 14.0f, 14.0f );
-    camera_lookat = make_float3( 0.0f, 7.0f, 0.0f );
-    camera_up   = make_float3( 0.0f, 1.0f,  0.0f );
-
-    camera_rotate  = Matrix4x4::identity();
-    camera_dirty = true;
-}
-
 
 void updateCamera()
 {
@@ -271,13 +251,27 @@ void updateCamera()
 
     camera_rotate = Matrix4x4::identity();
 
-    context["eye"]->setFloat( camera_eye );
-    context["U"  ]->setFloat( camera_u );
-    context["V"  ]->setFloat( camera_v );
-    context["W"  ]->setFloat( camera_w );
+    if ( context ) {
+      context["eye"]->setFloat( camera_eye );
+      context["U"  ]->setFloat( camera_u );
+      context["V"  ]->setFloat( camera_v );
+      context["W"  ]->setFloat( camera_w );
+    }
 
-    camera_dirty = false;
 }
+
+void setupCamera()
+{
+    camera_eye    = make_float3( 14.0f, 14.0f, 14.0f );
+    camera_lookat = make_float3( 0.0f, 7.0f, 0.0f );
+    camera_up   = make_float3( 0.0f, 1.0f,  0.0f );
+
+    camera_rotate  = Matrix4x4::identity();
+
+    updateCamera();
+}
+
+
 
 
 //------------------------------------------------------------------------------
@@ -325,67 +319,11 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
     }
 }
 
-
-#if 0
-void mouseButtonCallback( GLFWwindow* window, int button, int action, int mods )
-{
-   if( button == GLFW_MOUSE_BUTTON_RIGHT ||
-       button == GLFW_MOUSE_BUTTON_LEFT )
-   {
-       double x, y;
-       glfwGetCursorPos( window, &x, &y );
-       mouse_prev_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
-   }
-}
-#endif
-
-
-#if 0
-void cursorPosCallback( GLFWwindow* window, double x, double y )
-{
-    mouse_left_button_down = mouse_right_button_down = false;
-    if( glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_RIGHT ) == GLFW_PRESS )
-    {
-      mouse_right_button_down = true;
-#if 0
-        const float dx = static_cast<float>( x - mouse_prev_pos.x ) /
-                         static_cast<float>( width );
-        const float dy = static_cast<float>( y - mouse_prev_pos.y ) /
-                         static_cast<float>( height );
-        const float dmax = fabsf( dx ) > fabs( dy ) ? dx : dy;
-        const float scale = fminf( dmax, 0.9f );
-        camera_eye = camera_eye + (camera_lookat - camera_eye)*scale;
-        camera_dirty = true;
-#endif
-    }
-    else if( glfwGetMouseButton( window, GLFW_MOUSE_BUTTON_LEFT ) == GLFW_PRESS )
-    {
-      mouse_left_button_down = true;
-#if 0
-        const float2 from = { static_cast<float>(mouse_prev_pos.x),
-                              static_cast<float>(mouse_prev_pos.y) };
-        const float2 to   = { static_cast<float>(x),
-                              static_cast<float>(y) };
-
-        const float2 a = { from.x / width, from.y / height };
-        const float2 b = { to.x   / width, to.y   / height };
-
-        camera_rotate = arcball.rotate( b, a );
-        camera_dirty = true;
-#endif
-    }
-
-    //mouse_prev_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
-    mouse_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
-}
-#endif
-
-
 void windowSizeCallback( GLFWwindow* window, int w, int h )
 {
     width  = w;
     height = h;
-    camera_dirty = true;
+    updateCamera();
 
     sutil::resizeBuffer( getOutputBuffer(), width, height );
     sutil::resizeBuffer( context[ "accum_buffer" ]->getBuffer(), width, height );
@@ -417,6 +355,7 @@ void glfwInitialize()
 
 bool process_mouse( float x, float y, bool left_button_down, bool right_button_down )
 {
+  static sutil::Arcball arcball;
   static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
   static bool   have_mouse_prev_pos = false;
 
@@ -472,6 +411,7 @@ void glfwRun()
 
     unsigned int accumulation_frame = 0;
     unsigned int frame_count = 0;
+    float3 glass_extinction = make_float3( 1.0f, 1.0f, 1.0f );
 
     while( !glfwWindowShouldClose( g_window ) )
     {
@@ -489,7 +429,8 @@ void glfwRun()
           glfwGetCursorPos( g_window, &x, &y );
 
           if ( process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1) ) ) {
-            camera_dirty = true;
+            updateCamera();
+            accumulation_frame = 0;
           }
         }
 
@@ -504,17 +445,12 @@ void glfwRun()
                   ImGuiWindowFlags_NoScrollbar
                   // | ImGuiWindowFlags_NoInputs
                   );
-          if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f, "%.3f", /*power*/ 1.0f )) {
+          if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f )) {
             context["extinction_constant"]->setFloat( log(glass_extinction.x), log(glass_extinction.y), log(glass_extinction.z) );
             accumulation_frame = 0;
           }
 
           ImGui::End();
-        }
-
-        if ( camera_dirty ) {
-          updateCamera();
-          accumulation_frame = 0;
         }
 
         // Render main window
@@ -560,6 +496,7 @@ void printUsageAndExit( const std::string& argv0 )
 
 int main( int argc, char** argv )
 {
+    bool use_pbo  = true;
     std::string out_file;
     std::vector<std::string> mesh_files;
     std::vector<optix::Matrix4x4> mesh_xforms;
@@ -614,9 +551,9 @@ int main( int argc, char** argv )
         }
 #endif
 
-        createContext();
+        createContext( use_pbo );
 
-        Material material = createMaterial( glass_extinction );
+        Material material = createMaterial( make_float3(1.0f, 1.0f, 1.0f) );
 
         if ( mesh_files.empty() ) {
 
