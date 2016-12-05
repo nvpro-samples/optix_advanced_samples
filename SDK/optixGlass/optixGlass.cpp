@@ -60,6 +60,8 @@
 using namespace optix;
 
 const char* const SAMPLE_NAME = "optixGlass";
+const unsigned int WIDTH  = 768u;
+const unsigned int HEIGHT = 576u;
 
 //------------------------------------------------------------------------------
 //
@@ -68,15 +70,145 @@ const char* const SAMPLE_NAME = "optixGlass";
 //------------------------------------------------------------------------------
 
 Context      context = 0;
-uint32_t     width    = 768u;
-uint32_t     height   = 576u;
 GLFWwindow*  g_window = 0; 
+unsigned int g_accumulation_frame = 0;
 
-// Camera state
-float3         camera_up;
-float3         camera_lookat;
-float3         camera_eye;
-Matrix4x4      camera_rotate;
+// Camera state for raygen program
+struct Camera
+{
+  Camera( unsigned int width, unsigned int height, 
+          const float3& camera_eye,
+          const float3& camera_lookat,
+          const float3& camera_up,
+          Variable eye, Variable u, Variable v, Variable w) 
+
+    : m_width( width ),
+    m_height( height ),
+    m_camera_eye( camera_eye ),
+    m_camera_lookat( camera_lookat ),
+    m_camera_up( camera_up ),
+    m_camera_rotate( Matrix4x4::identity() ),
+    m_variable_eye( eye ),
+    m_variable_u( u ),
+    m_variable_v( v ),
+    m_variable_w( w )
+  {
+    apply();
+  }
+
+  // Compute derived uvw frame and write to OptiX context
+  void apply( )
+  {
+    const float vfov  = 45.0f;
+    const float aspect_ratio = static_cast<float>(m_width) /
+        static_cast<float>(m_height);
+
+    float3 camera_u, camera_v, camera_w;
+    sutil::calculateCameraVariables(
+            m_camera_eye, m_camera_lookat, m_camera_up, vfov, aspect_ratio,
+            camera_u, camera_v, camera_w, /*fov_is_vertical*/ true );
+
+    const Matrix4x4 frame = Matrix4x4::fromBasis(
+            normalize( camera_u ),
+            normalize( camera_v ),
+            normalize( -camera_w ),
+            m_camera_lookat);
+    const Matrix4x4 frame_inv = frame.inverse();
+    // Apply camera rotation twice to match old SDK behavior
+    const Matrix4x4 trans   = frame*m_camera_rotate*m_camera_rotate*frame_inv;
+
+    m_camera_eye    = make_float3( trans*make_float4( m_camera_eye,    1.0f ) );
+    m_camera_lookat = make_float3( trans*make_float4( m_camera_lookat, 1.0f ) );
+    m_camera_up     = make_float3( trans*make_float4( m_camera_up,     0.0f ) );
+
+    sutil::calculateCameraVariables(
+            m_camera_eye, m_camera_lookat, m_camera_up, vfov, aspect_ratio,
+            camera_u, camera_v, camera_w, true );
+
+    m_camera_rotate = Matrix4x4::identity();
+
+    // Write variables to OptiX context
+    m_variable_eye->setFloat( m_camera_eye );
+    m_variable_u->setFloat( camera_u );
+    m_variable_v->setFloat( camera_v );
+    m_variable_w->setFloat( camera_w );
+  }
+
+  bool process_mouse( float x, float y, bool left_button_down, bool right_button_down )
+  {
+    static sutil::Arcball arcball;
+    static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
+    static bool   have_mouse_prev_pos = false;
+  
+    bool dirty = false;
+  
+    if ( left_button_down || right_button_down ) {
+      if ( have_mouse_prev_pos ) {
+        if ( left_button_down ) {
+  
+          const float2 from = { mouse_prev_pos.x, mouse_prev_pos.y };
+          const float2 to   = { x, y };
+  
+          const float2 a = { from.x / m_width, from.y / m_height };
+          const float2 b = { to.x   / m_width, to.y   / m_height };
+  
+          m_camera_rotate = arcball.rotate( b, a );
+  
+        } else if ( right_button_down ) {
+          const float dx = ( x - mouse_prev_pos.x ) / m_width;
+          const float dy = ( y - mouse_prev_pos.y ) / m_height;
+          const float dmax = fabsf( dx ) > fabs( dy ) ? dx : dy;
+          const float scale = fminf( dmax, 0.9f );
+  
+          m_camera_eye = m_camera_eye + (m_camera_lookat - m_camera_eye)*scale;
+          
+        }
+        
+        apply();
+        dirty = true;
+  
+      }
+  
+      have_mouse_prev_pos = true;
+      mouse_prev_pos.x = x;
+      mouse_prev_pos.y = y;
+  
+    } else {
+      have_mouse_prev_pos = false;
+    }
+     
+    return dirty;
+  }
+
+  bool resize( unsigned int w, unsigned int h) {
+    if ( w == m_width && h == m_height) return false;
+    m_width = w;
+    m_height = h;
+    apply();
+    return true;
+  }
+
+  unsigned int width() const  { return m_width; }
+  unsigned int height() const { return m_height; }
+
+private:
+  unsigned int m_width;
+  unsigned int m_height;
+
+  float3    m_camera_eye;
+  float3    m_camera_lookat;
+  float3    m_camera_up;
+  Matrix4x4 m_camera_rotate;
+
+  // Handles for setting derived values for OptiX context
+  Variable  m_variable_eye;
+  Variable  m_variable_u;
+  Variable  m_variable_v;
+  Variable  m_variable_w;
+
+};
+
+Camera* g_camera = NULL;
 
 
 //------------------------------------------------------------------------------
@@ -131,12 +263,12 @@ void createContext( bool use_pbo )
     context["frame"]->setUint( 0u );
     context["scene_epsilon"]->setFloat( 1.e-3f );
 
-    Buffer buffer = sutil::createOutputBuffer( context, RT_FORMAT_UNSIGNED_BYTE4, width, height, use_pbo );
+    Buffer buffer = sutil::createOutputBuffer( context, RT_FORMAT_UNSIGNED_BYTE4, WIDTH, HEIGHT, use_pbo );
     context["output_buffer"]->set( buffer );
 
     // Accumulation buffer
     Buffer accum_buffer = context->createBuffer( RT_BUFFER_INPUT_OUTPUT | RT_BUFFER_GPU_LOCAL,
-            RT_FORMAT_FLOAT4, width, height );
+            RT_FORMAT_FLOAT4, WIDTH, HEIGHT );
     context["accum_buffer"]->set( accum_buffer );
 
     // Ray generation program
@@ -183,8 +315,8 @@ Material createMaterial( const float3& extinction )
     material["reflection_color"   ]->setFloat( 0.99f, 0.99f, 0.99f );
     material["refraction_maxdepth"]->setInt( 10 );
     material["reflection_maxdepth"]->setInt( 5 );
-    /*material["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );*/
 
+    // Set this on the global context so it's easy to change in the gui
     context["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );
 
     return material;
@@ -221,56 +353,6 @@ void createGeometry(
 
 
 
-void updateCamera()
-{
-    const float vfov  = 45.0f;
-    const float aspect_ratio = static_cast<float>(width) /
-        static_cast<float>(height);
-
-    float3 camera_u, camera_v, camera_w;
-    sutil::calculateCameraVariables(
-            camera_eye, camera_lookat, camera_up, vfov, aspect_ratio,
-            camera_u, camera_v, camera_w, /*fov_is_vertical*/ true );
-
-    const Matrix4x4 frame = Matrix4x4::fromBasis(
-            normalize( camera_u ),
-            normalize( camera_v ),
-            normalize( -camera_w ),
-            camera_lookat);
-    const Matrix4x4 frame_inv = frame.inverse();
-    // Apply camera rotation twice to match old SDK behavior
-    const Matrix4x4 trans   = frame*camera_rotate*camera_rotate*frame_inv;
-
-    camera_eye    = make_float3( trans*make_float4( camera_eye,    1.0f ) );
-    camera_lookat = make_float3( trans*make_float4( camera_lookat, 1.0f ) );
-    camera_up     = make_float3( trans*make_float4( camera_up,     0.0f ) );
-
-    sutil::calculateCameraVariables(
-            camera_eye, camera_lookat, camera_up, vfov, aspect_ratio,
-            camera_u, camera_v, camera_w, true );
-
-    camera_rotate = Matrix4x4::identity();
-
-    if ( context ) {
-      context["eye"]->setFloat( camera_eye );
-      context["U"  ]->setFloat( camera_u );
-      context["V"  ]->setFloat( camera_v );
-      context["W"  ]->setFloat( camera_w );
-    }
-
-}
-
-void setupCamera()
-{
-    camera_eye    = make_float3( 14.0f, 14.0f, 14.0f );
-    camera_lookat = make_float3( 0.0f, 7.0f, 0.0f );
-    camera_up   = make_float3( 0.0f, 1.0f,  0.0f );
-
-    camera_rotate  = Matrix4x4::identity();
-
-    updateCamera();
-}
-
 
 
 
@@ -289,7 +371,7 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
     {
         switch( key )
         {
-            case GLFW_KEY_Q: // esc
+            case GLFW_KEY_Q:
             case GLFW_KEY_ESCAPE:
                 if( context )
                     context->destroy();
@@ -307,9 +389,6 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
                 handled = true;
                 break;
             }
-            default:
-            {
-            }
         }
     }
 
@@ -321,9 +400,14 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
 
 void windowSizeCallback( GLFWwindow* window, int w, int h )
 {
-    width  = w;
-    height = h;
-    updateCamera();
+    if (w < 0 || h < 0) return;
+
+    const unsigned width = (unsigned)w;
+    const unsigned height = (unsigned)h;
+
+    if ( g_camera->resize( width, height ) ) {
+      g_accumulation_frame = 0;
+    }
 
     sutil::resizeBuffer( getOutputBuffer(), width, height );
     sutil::resizeBuffer( context[ "accum_buffer" ]->getBuffer(), width, height );
@@ -341,62 +425,19 @@ void windowSizeCallback( GLFWwindow* window, int w, int h )
 //
 //------------------------------------------------------------------------------
 
-void glfwInitialize()
+void glfwInitialize( )
 {
     g_window = sutil::initGLFW();
 
     // Note: this overrides imgui key callback with our own.  We'll chain this.
     glfwSetKeyCallback( g_window, keyCallback );
 
-    glfwSetWindowSize( g_window, width, height );
+    glfwSetWindowSize( g_window, (int)WIDTH, (int)HEIGHT );
     //glfwSetCursorPosCallback( g_window, cursorPosCallback );
     glfwSetWindowSizeCallback( g_window, windowSizeCallback );
 }
 
-bool process_mouse( float x, float y, bool left_button_down, bool right_button_down )
-{
-  static sutil::Arcball arcball;
-  static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
-  static bool   have_mouse_prev_pos = false;
 
-  bool dirty = false;
-
-  if ( left_button_down || right_button_down ) {
-    if ( have_mouse_prev_pos ) {
-      if ( left_button_down ) {
-
-        const float2 from = { mouse_prev_pos.x, mouse_prev_pos.y };
-        const float2 to   = { x, y };
-
-        const float2 a = { from.x / width, from.y / height };
-        const float2 b = { to.x   / width, to.y   / height };
-
-        camera_rotate = arcball.rotate( b, a );
-
-      } else if ( right_button_down ) {
-        const float dx = ( x - mouse_prev_pos.x ) / width;
-        const float dy = ( y - mouse_prev_pos.y ) / height;
-        const float dmax = fabsf( dx ) > fabs( dy ) ? dx : dy;
-        const float scale = fminf( dmax, 0.9f );
-
-        camera_eye = camera_eye + (camera_lookat - camera_eye)*scale;
-        
-      }
-
-      dirty = true;
-
-    }
-
-    have_mouse_prev_pos = true;
-    mouse_prev_pos.x = x;
-    mouse_prev_pos.y = y;
-
-  } else {
-    have_mouse_prev_pos = false;
-  }
-
-  return dirty;
-}
 
 
 void glfwRun()
@@ -407,9 +448,8 @@ void glfwRun()
     glOrtho(0, 1, 0, 1, -1, 1 );
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, g_camera->width(), g_camera->height() );
 
-    unsigned int accumulation_frame = 0;
     unsigned int frame_count = 0;
     float3 glass_extinction = make_float3( 1.0f, 1.0f, 1.0f );
 
@@ -422,17 +462,21 @@ void glfwRun()
 
         ImGuiIO& io = ImGui::GetIO();
         
-        // Let imgui have first crack at mouse and keys
+        // Let imgui have first crack at mouse
         if (!io.WantCaptureMouse) {
           
           double x, y;
           glfwGetCursorPos( g_window, &x, &y );
 
-          if ( process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1) ) ) {
-            updateCamera();
-            accumulation_frame = 0;
+          if ( g_camera->process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1) ) ) {
+            g_accumulation_frame = 0;
           }
         }
+
+        // imgui pushes
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,   ImVec2(0,0) );
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,          0.6f        );
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f        );
 
         sutil::displayFps( frame_count++ );
 
@@ -443,19 +487,21 @@ void glfwRun()
                   ImGuiWindowFlags_AlwaysAutoResize |
                   ImGuiWindowFlags_NoMove |
                   ImGuiWindowFlags_NoScrollbar
-                  // | ImGuiWindowFlags_NoInputs
                   );
           if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f )) {
             context["extinction_constant"]->setFloat( log(glass_extinction.x), log(glass_extinction.y), log(glass_extinction.z) );
-            accumulation_frame = 0;
+            g_accumulation_frame = 0;
           }
 
           ImGui::End();
         }
 
+        // imgui pops
+        ImGui::PopStyleVar( 3 );
+
         // Render main window
-        context["frame"]->setUint( accumulation_frame++ );
-        context->launch( 0, width, height );
+        context["frame"]->setUint( g_accumulation_frame++ );
+        context->launch( 0, g_camera->width(), g_camera->height() );
         sutil::displayBufferGL( getOutputBuffer() );
 
         // Render gui over it
@@ -571,11 +617,15 @@ int main( int argc, char** argv )
 
         createGeometry( mesh_files, mesh_xforms, material );
 
-        setupCamera();
-
         // Note: lighting comes from miss program
 
         context->validate();
+
+        g_camera = new Camera( WIDTH, HEIGHT, 
+            make_float3( 14.0f, 14.0f, 14.0f ),  //eye
+            make_float3( 0.0f, 7.0f, 0.0f ),     //lookat
+            make_float3( 0.0f, 1.0f,  0.0f ),    //up
+            context["eye"], context["U"], context["V"], context["W"] );
 
         if ( out_file.empty() )
         {
@@ -583,15 +633,15 @@ int main( int argc, char** argv )
         }
         else
         {
-            updateCamera();
             // Accumulate a few frames for anti-aliasing
             for ( unsigned int frame = 0; frame < 10; ++frame ) {
                 context["frame"]->setUint( frame );
-                context->launch( 0, width, height );
+                context->launch( 0, WIDTH, HEIGHT );
             }
             sutil::displayBufferPPM( out_file.c_str(), getOutputBuffer() );
             destroyContext();
         }
+        delete g_camera; g_camera = NULL;
         return 0;
     }
     SUTIL_CATCH( context->get() )
