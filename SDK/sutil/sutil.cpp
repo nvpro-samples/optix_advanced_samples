@@ -87,6 +87,7 @@ void errorCallback(int error, const char* description)
 
 void keyCallback( GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/ )
 {
+    std::cerr << "global key callback\n";
     if( action == GLFW_PRESS )
     {
         switch( key )
@@ -351,7 +352,7 @@ GLFWwindow* sutil::initGLFW()
 
     g_glfw_initialized = true;
     
-    ImGui_ImplGlfw_Init( g_window, false );
+    ImGui_ImplGlfw_Init( g_window, /*install callbacks*/ true );
 
     return g_window;
 }
@@ -663,7 +664,7 @@ void sutil::displayFps( unsigned int frame_count )
         last_update_time = current_time;
     }
     if ( frame_count > 0 && fps >= 0.0 ) {
-        ImGui_ImplGlfw_NewFrame();
+        //ImGui_ImplGlfw_NewFrame();
 
         ImGui::SetNextWindowPos( ImVec2( 2.0f, 2.0f ) );
         ImGui::Begin("fps", 0,
@@ -679,7 +680,7 @@ void sutil::displayFps( unsigned int frame_count )
 
         ImGui::Text( "fps: %7.2f", fps );
         ImGui::End();
-        ImGui::Render();
+        //ImGui::Render();
     }
 }
 

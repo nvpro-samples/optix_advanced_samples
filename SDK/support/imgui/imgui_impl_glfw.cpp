@@ -13,6 +13,8 @@
 #include <imgui.h>
 #include "imgui_impl_glfw.h"
 
+#include <iostream>
+
 // GLFW
 #include <GLFW/glfw3.h>
 #ifdef _WIN32
@@ -133,8 +135,9 @@ void ImGui_ImplGlfw_ScrollCallback(GLFWwindow*, double /*xoffset*/, double yoffs
     g_MouseWheel += (float)yoffset; // Use fractional mouse wheel, 1.0 unit 5 lines.
 }
 
-void ImGui_ImplGlFw_KeyCallback(GLFWwindow*, int key, int, int action, int mods)
+void ImGui_ImplGlfw_KeyCallback(GLFWwindow*, int key, int, int action, int mods)
 {
+    std::cerr << "imgui key callback\n";
     ImGuiIO& io = ImGui::GetIO();
     if (action == GLFW_PRESS)
         io.KeysDown[key] = true;
@@ -228,7 +231,7 @@ bool    ImGui_ImplGlfw_Init(GLFWwindow* window, bool install_callbacks)
     {
         glfwSetMouseButtonCallback(window, ImGui_ImplGlfw_MouseButtonCallback);
         glfwSetScrollCallback(window, ImGui_ImplGlfw_ScrollCallback);
-        glfwSetKeyCallback(window, ImGui_ImplGlFw_KeyCallback);
+        glfwSetKeyCallback(window, ImGui_ImplGlfw_KeyCallback);
         glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
     }
 
@@ -271,6 +274,7 @@ void ImGui_ImplGlfw_NewFrame()
     }
     else
     {
+        //std::cerr << "imgui: window not focused\n";
         io.MousePos = ImVec2(-1,-1);
     }
 
