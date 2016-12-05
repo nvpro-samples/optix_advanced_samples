@@ -340,6 +340,7 @@ void mouseButtonCallback( GLFWwindow* window, int button, int action, int mods )
 #endif
 
 
+#if 0
 void cursorPosCallback( GLFWwindow* window, double x, double y )
 {
     mouse_left_button_down = mouse_right_button_down = false;
@@ -377,6 +378,7 @@ void cursorPosCallback( GLFWwindow* window, double x, double y )
     //mouse_prev_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
     mouse_pos = make_float2( static_cast<float>( x ), static_cast<float>( y ) );
 }
+#endif
 
 
 void windowSizeCallback( GLFWwindow* window, int w, int h )
@@ -409,20 +411,20 @@ void glfwInitialize()
     glfwSetKeyCallback( g_window, keyCallback );
 
     glfwSetWindowSize( g_window, width, height );
-    glfwSetCursorPosCallback( g_window, cursorPosCallback );
+    //glfwSetCursorPosCallback( g_window, cursorPosCallback );
     glfwSetWindowSizeCallback( g_window, windowSizeCallback );
 }
 
-void process_mouse( )
+bool process_mouse( float x, float y, bool left_button_down, bool right_button_down )
 {
   static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
   static bool   have_mouse_prev_pos = false;
 
-  const float x = mouse_pos.x;
-  const float y = mouse_pos.y;
-  if ( mouse_left_button_down || mouse_right_button_down ) {
+  bool dirty = false;
+
+  if ( left_button_down || right_button_down ) {
     if ( have_mouse_prev_pos ) {
-      if ( mouse_left_button_down ) {
+      if ( left_button_down ) {
 
         const float2 from = { mouse_prev_pos.x, mouse_prev_pos.y };
         const float2 to   = { x, y };
@@ -432,7 +434,7 @@ void process_mouse( )
 
         camera_rotate = arcball.rotate( b, a );
 
-      } else if ( mouse_right_button_down ) {
+      } else if ( right_button_down ) {
         const float dx = ( x - mouse_prev_pos.x ) / width;
         const float dy = ( y - mouse_prev_pos.y ) / height;
         const float dmax = fabsf( dx ) > fabs( dy ) ? dx : dy;
@@ -442,7 +444,7 @@ void process_mouse( )
         
       }
 
-      camera_dirty = true;
+      dirty = true;
 
     }
 
@@ -453,6 +455,8 @@ void process_mouse( )
   } else {
     have_mouse_prev_pos = false;
   }
+
+  return dirty;
 }
 
 
@@ -480,7 +484,13 @@ void glfwRun()
         
         // Let imgui have first crack at mouse and keys
         if (!io.WantCaptureMouse) {
-          process_mouse( /*io*/ );
+          
+          double x, y;
+          glfwGetCursorPos( g_window, &x, &y );
+
+          if ( process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1) ) ) {
+            camera_dirty = true;
+          }
         }
 
         sutil::displayFps( frame_count++ );
