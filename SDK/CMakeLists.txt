@@ -130,8 +130,11 @@ if(USING_CLANG_C)
 endif()
 
 find_package(CUDA 7.0 REQUIRED)
-find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
+
+if ( OPENGL_FOUND AND OPENGL_INCLUDE_DIR )
+  include_directories( ${OPENGL_INCLUDE_DIR} )
+endif()
 
 # Present the CUDA_64_BIT_DEVICE_CODE on the default set of options.
 mark_as_advanced(CLEAR CUDA_64_BIT_DEVICE_CODE)
@@ -230,6 +233,14 @@ set(SAMPLES_CUDA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cuda)
 # IMGUI compilation
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/support )
 add_subdirectory( support/imgui )
+
+##################################################################
+# GLFW compilation
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory( support/glfw )
+
 
 #########################################################
 # OPTIX_add_sample_executable
