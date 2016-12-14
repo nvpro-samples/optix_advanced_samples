@@ -74,10 +74,6 @@ if(OPENGL_FOUND AND NOT APPLE)
   
 endif()
 
-if(GLFW_FOUND AND OPENGL_FOUND)
-    include_directories(${GLFW_INCLUDE_DIR})
-endif()
-
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 # For commonStructs.h

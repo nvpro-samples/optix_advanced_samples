@@ -270,6 +270,7 @@ function(OPTIX_add_sample_executable target_name)
     sutil_sdk
     optix
     glfw
+    imgui
     ${OPENGL_gl_LIBRARY}
     ${optix_rpath}
     )

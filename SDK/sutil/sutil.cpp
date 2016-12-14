@@ -666,6 +666,9 @@ void sutil::displayFps( unsigned int frame_count )
         ImGui_ImplGlfw_NewFrame();
 
         ImGui::SetNextWindowPos( ImVec2( 2.0f, 2.0f ) );
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.6f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f);
         ImGui::Begin("fps", 0,
                 ImGuiWindowFlags_NoTitleBar |
                 ImGuiWindowFlags_AlwaysAutoResize |
@@ -673,12 +676,9 @@ void sutil::displayFps( unsigned int frame_count )
                 ImGuiWindowFlags_NoScrollbar |
                 ImGuiWindowFlags_NoInputs
                 );
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,   ImVec2(0,0) );
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,          0.6f        );
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f        );
-
         ImGui::Text( "fps: %7.2f", fps );
         ImGui::End();
+        ImGui::PopStyleVar(3);
         ImGui::Render();
     }
 }
