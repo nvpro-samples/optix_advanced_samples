@@ -13,8 +13,6 @@
 #include <imgui.h>
 #include "imgui_impl_glfw.h"
 
-#include <iostream>
-
 // GLFW
 #include <GLFW/glfw3.h>
 #ifdef _WIN32
@@ -273,7 +271,6 @@ void ImGui_ImplGlfw_NewFrame()
     }
     else
     {
-        //std::cerr << "imgui: window not focused\n";
         io.MousePos = ImVec2(-1,-1);
     }
 

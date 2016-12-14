@@ -629,8 +629,6 @@
 #include <stdint.h>     // intptr_t
 #endif
 
-#include <iostream>
-
 #ifdef _MSC_VER
 #pragma warning (disable: 4127) // condition expression is constant
 #pragma warning (disable: 4505) // unreferenced local function has been removed (stb stuff)
@@ -2259,15 +2257,8 @@ void ImGui::NewFrame()
     bool mouse_avail_to_imgui = (mouse_earliest_button_down == -1) || g.IO.MouseDownOwned[mouse_earliest_button_down];
     if (g.CaptureMouseNextFrame != -1)
         g.IO.WantCaptureMouse = (g.CaptureMouseNextFrame != 0);
-    else {
+    else
         g.IO.WantCaptureMouse = (mouse_avail_to_imgui && (g.HoveredWindow != NULL || mouse_any_down)) || (g.ActiveId != 0) || (!g.OpenPopupStack.empty());
-        if (g.IO.WantCaptureMouse) {
-#if 0
-        std::cerr << "WantCaptureMouse= " << g.IO.WantCaptureMouse << ", mouse_avail = " << mouse_avail_to_imgui << ", hovered = " << g.HoveredWindow << 
-          ", mouse_any_down = " << mouse_any_down << ", active id = " << g.ActiveId << std::endl;
-#endif
-        }
-    }
     g.IO.WantCaptureKeyboard = (g.CaptureKeyboardNextFrame != -1) ? (g.CaptureKeyboardNextFrame != 0) : (g.ActiveId != 0);
     g.IO.WantTextInput = (g.ActiveId != 0 && g.InputTextState.Id == g.ActiveId);
     g.MouseCursor = ImGuiMouseCursor_Arrow;
@@ -3867,7 +3858,6 @@ bool ImGui::Begin(const char* name, bool* p_open, const ImVec2& size_on_first_us
     ImGuiWindow* window = FindWindowByName(name);
     if (!window)
     {
-      std::cerr << "create new window: " << name << std::endl;
         window = CreateNewWindow(name, size_on_first_use, flags);
         window_is_new = true;
     }
