@@ -108,7 +108,6 @@ target_link_libraries(${sutil_target}
 if(WIN32)
   target_link_libraries(${sutil_target} winmm.lib)
 endif()
-add_perforce_to_target( ${sutil_target} )
 
 
 if(RELEASE_INSTALL_BINARY_SAMPLES AND NOT RELEASE_STATIC_BUILD)

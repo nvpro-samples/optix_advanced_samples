@@ -47,9 +47,10 @@ if (UNIX AND NOT APPLE)
     option(GLFW_USE_MIR     "Use Mir for window creation" OFF)
 endif()
 
-if (MSVC)
-    option(USE_MSVC_RUNTIME_LIBRARY_DLL "Use MSVC runtime library DLL" ON)
-endif()
+# override: use the global runtime flags
+#if (MSVC)
+#    option(USE_MSVC_RUNTIME_LIBRARY_DLL "Use MSVC runtime library DLL" ON)
+#endif()
 
 if (BUILD_SHARED_LIBS)
     set(_GLFW_BUILD_DLL 1)
@@ -69,7 +70,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${GLFW_SOURCE_DIR}/CMake/modules")
 
 find_package(Threads REQUIRED)
-find_package(Vulkan)
+find_package(Vulkan QUIET)
 
 if (GLFW_BUILD_DOCS)
     set(DOXYGEN_SKIP_DOT TRUE)
@@ -79,24 +80,24 @@ endif()
 #--------------------------------------------------------------------
 # Set compiler specific flags
 #--------------------------------------------------------------------
-if (MSVC)
-    if (NOT USE_MSVC_RUNTIME_LIBRARY_DLL)
-        foreach (flag CMAKE_C_FLAGS
-                      CMAKE_C_FLAGS_DEBUG
-                      CMAKE_C_FLAGS_RELEASE
-                      CMAKE_C_FLAGS_MINSIZEREL
-                      CMAKE_C_FLAGS_RELWITHDEBINFO)
-
-            if (${flag} MATCHES "/MD")
-                string(REGEX REPLACE "/MD" "/MT" ${flag} "${${flag}}")
-            endif()
-            if (${flag} MATCHES "/MDd")
-                string(REGEX REPLACE "/MDd" "/MTd" ${flag} "${${flag}}")
-            endif()
-
-        endforeach()
-    endif()
-endif()
+#if (MSVC)
+#    if (NOT USE_MSVC_RUNTIME_LIBRARY_DLL)
+#        foreach (flag CMAKE_C_FLAGS
+#                      CMAKE_C_FLAGS_DEBUG
+#                      CMAKE_C_FLAGS_RELEASE
+#                      CMAKE_C_FLAGS_MINSIZEREL
+#                      CMAKE_C_FLAGS_RELWITHDEBINFO)
+#
+#            if (${flag} MATCHES "/MD")
+#                string(REGEX REPLACE "/MD" "/MT" ${flag} "${${flag}}")
+#            endif()
+#            if (${flag} MATCHES "/MDd")
+#                string(REGEX REPLACE "/MDd" "/MTd" ${flag} "${${flag}}")
+#            endif()
+#
+#        endforeach()
+#    endif()
+#endif()
 
 if (MINGW)
     # Workaround for legacy MinGW not providing XInput and DirectInput
