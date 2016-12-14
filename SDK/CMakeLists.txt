@@ -129,10 +129,12 @@ if(USING_CLANG_C)
   set(CUDA_HOST_COMPILER "clang" CACHE FILEPATH "Host side compiler used by NVCC")
 endif()
 
-# Find at least a 2.3 version of CUDA.
 find_package(CUDA 7.0 REQUIRED)
-find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
+
+if ( OPENGL_FOUND AND OPENGL_INCLUDE_DIR )
+  include_directories( ${OPENGL_INCLUDE_DIR} )
+endif()
 
 # Present the CUDA_64_BIT_DEVICE_CODE on the default set of options.
 mark_as_advanced(CLEAR CUDA_64_BIT_DEVICE_CODE)
@@ -232,6 +234,14 @@ set(SAMPLES_CUDA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cuda)
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/support )
 add_subdirectory( support/imgui )
 
+##################################################################
+# GLFW compilation
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory( support/glfw )
+
+
 #########################################################
 # OPTIX_add_sample_executable
 #
@@ -265,15 +275,13 @@ function(OPTIX_add_sample_executable target_name)
     ${cmake_options}
     )
 
-  include_directories(
-      "${OPENGL_INCLUDE_DIR}"
-      )
-
-  # Most of the samples link against the sutil library and the optix library.  Here is the
+  # Most of the samples link against sutil, optix, and glfw.  Here is the
   # rule that specifies this linkage.
   target_link_libraries( ${target_name}
     sutil_sdk
     optix
+    glfw
+    imgui
     ${OPENGL_gl_LIBRARY}
     ${optix_rpath}
     )

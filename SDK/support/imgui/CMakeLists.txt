@@ -14,3 +14,5 @@ add_library( imgui SHARED
     stb_textedit.h
     stb_truetype.h
     )
+
+target_link_libraries( imgui glfw ${OPENGL_gl_LIBRARY})

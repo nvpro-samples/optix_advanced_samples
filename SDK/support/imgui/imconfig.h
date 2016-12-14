@@ -10,8 +10,17 @@
 //#define IM_ASSERT(_EXPR)  MyAssert(_EXPR)
 
 //---- Define attributes of all API symbols declarations, e.g. for DLL under Windows.
-//#define IMGUI_API __declspec( dllexport )
-//#define IMGUI_API __declspec( dllimport )
+#ifndef IMGUI_API
+#  if imgui_EXPORTS  /* Set by CMake */
+#    if defined( _WIN32 ) || defined( _WIN64 )
+#      define IMGUI_API __declspec( dllexport )
+#    endif
+#  else /* imgui_EXPORTS */
+#    if defined( _WIN32 ) || defined( _WIN64 )
+#      define IMGUI_API __declspec( dllimport )
+#    endif
+#  endif
+#endif
 
 //---- Include imgui_user.h at the end of imgui.h
 //#define IMGUI_INCLUDE_IMGUI_USER_H

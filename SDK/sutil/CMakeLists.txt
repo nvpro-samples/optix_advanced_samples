@@ -74,10 +74,6 @@ if(OPENGL_FOUND AND NOT APPLE)
   
 endif()
 
-if(GLFW_FOUND AND OPENGL_FOUND)
-    include_directories(${GLFW_INCLUDE_DIR})
-endif()
-
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 # For commonStructs.h
@@ -112,7 +108,6 @@ target_link_libraries(${sutil_target}
 if(WIN32)
   target_link_libraries(${sutil_target} winmm.lib)
 endif()
-add_perforce_to_target( ${sutil_target} )
 
 
 if(RELEASE_INSTALL_BINARY_SAMPLES AND NOT RELEASE_STATIC_BUILD)
