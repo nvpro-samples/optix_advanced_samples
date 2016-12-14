@@ -366,7 +366,6 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
 {
     bool handled = false;
 
-    std::cerr << "app key callback\n";
     if( action == GLFW_PRESS )
     {
         switch( key )
