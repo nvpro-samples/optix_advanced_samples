@@ -88,6 +88,7 @@ struct Camera
         : m_width( width ),
         m_height( height ),
         m_camera_eye( camera_eye ),
+        m_save_camera_lookat( camera_lookat ),
         m_camera_lookat( camera_lookat ),
         m_camera_up( camera_up ),
         m_camera_rotate( Matrix4x4::identity() ),
@@ -99,21 +100,21 @@ struct Camera
             apply();
         }
 
-  // Compute derived uvw frame and write to OptiX context
+    // Compute derived uvw frame and write to OptiX context
     void apply( )
     {
         const float vfov  = 45.0f;
         const float aspect_ratio = static_cast<float>(m_width) /
             static_cast<float>(m_height);
 
-        float3 camera_u, camera_v, camera_w;
+        float3 camera_w;
         sutil::calculateCameraVariables(
                 m_camera_eye, m_camera_lookat, m_camera_up, vfov, aspect_ratio,
-                camera_u, camera_v, camera_w, /*fov_is_vertical*/ true );
+                m_camera_u, m_camera_v, camera_w, /*fov_is_vertical*/ true );
 
         const Matrix4x4 frame = Matrix4x4::fromBasis(
-                normalize( camera_u ),
-                normalize( camera_v ),
+                normalize( m_camera_u ),
+                normalize( m_camera_v ),
                 normalize( -camera_w ),
                 m_camera_lookat);
         const Matrix4x4 frame_inv = frame.inverse();
@@ -126,18 +127,25 @@ struct Camera
 
         sutil::calculateCameraVariables(
                 m_camera_eye, m_camera_lookat, m_camera_up, vfov, aspect_ratio,
-                camera_u, camera_v, camera_w, true );
+                m_camera_u, m_camera_v, camera_w, true );
 
         m_camera_rotate = Matrix4x4::identity();
 
         // Write variables to OptiX context
         m_variable_eye->setFloat( m_camera_eye );
-        m_variable_u->setFloat( camera_u );
-        m_variable_v->setFloat( camera_v );
+        m_variable_u->setFloat( m_camera_u );
+        m_variable_v->setFloat( m_camera_v );
         m_variable_w->setFloat( camera_w );
     }
 
-    bool process_mouse( float x, float y, bool left_button_down, bool right_button_down )
+    void reset_lookat() {
+        const float3 translation = m_save_camera_lookat - m_camera_lookat;
+        m_camera_eye += translation;
+        m_camera_lookat = m_save_camera_lookat;
+        apply();
+    }
+
+    bool process_mouse( float x, float y, bool left_button_down, bool right_button_down, bool middle_button_down )
     {
         static sutil::Arcball arcball;
         static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
@@ -145,7 +153,7 @@ struct Camera
 
         bool dirty = false;
 
-        if ( left_button_down || right_button_down ) {
+        if ( left_button_down || right_button_down || middle_button_down ) {
             if ( have_mouse_prev_pos ) {
                 if ( left_button_down ) {
 
@@ -165,6 +173,13 @@ struct Camera
 
                     m_camera_eye = m_camera_eye + (m_camera_lookat - m_camera_eye)*scale;
 
+                } else if ( middle_button_down ) {
+                    const float dx = ( x - mouse_prev_pos.x ) / m_width;
+                    const float dy = ( y - mouse_prev_pos.y ) / m_height;
+
+                    float3 translation = -dx*m_camera_u + dy*m_camera_v;
+                    m_camera_eye    = m_camera_eye + translation;
+                    m_camera_lookat = m_camera_lookat + translation;
                 }
 
                 apply();
@@ -200,7 +215,10 @@ struct Camera
 
     float3    m_camera_eye;
     float3    m_camera_lookat;
+    const float3 m_save_camera_lookat;
     float3    m_camera_up;
+    float3    m_camera_u; // derived
+    float3    m_camera_v; // derived
     Matrix4x4 m_camera_rotate;
 
     // Handles for setting derived values for OptiX context
@@ -392,6 +410,13 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
                 handled = true;
                 break;
             }
+            case( GLFW_KEY_F ):
+            {
+               g_camera->reset_lookat();
+               g_accumulation_frame = 0;
+               handled = true;
+               break;
+            }
         }
     }
 
@@ -469,7 +494,7 @@ void glfwRun()
             double x, y;
             glfwGetCursorPos( g_window, &x, &y );
 
-            if ( g_camera->process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1) ) ) {
+            if ( g_camera->process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1), ImGui::IsMouseDown(2) ) ) {
                 g_accumulation_frame = 0;
             }
         }
@@ -543,6 +568,7 @@ void printUsageAndExit( const std::string& argv0 )
         "App Keystrokes:\n"
         "  q  Quit\n"
         "  s  Save image to '" << SAMPLE_NAME << ".ppm'\n"
+        "  f  Re-center camera\n"
         << std::endl;
 
     exit(1);
@@ -614,7 +640,7 @@ int main( int argc, char** argv )
 
             // Default scene
 
-#if 1
+#if 0
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/cognacglass.obj" );
             mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( 0.0f, 0.0f, -5.0f ) ) );
 
