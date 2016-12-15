@@ -349,6 +349,7 @@ optix::Aabb createGeometry(
 
     const std::string ptx_path = ptxPath( "triangle_mesh_iterative.cu" );
 
+    int num_triangles = 0;
     optix::Aabb aabb;
     GeometryGroup geometry_group = context->createGeometryGroup();
     for (size_t i = 0; i < filenames.size(); ++i) {
@@ -365,7 +366,11 @@ optix::Aabb createGeometry(
         geometry_group->addChild( mesh.geom_instance );
 
         aabb.include( mesh.bbox_min, mesh.bbox_max );
+
+        std::cerr << filenames[i] << ": " << mesh.num_triangles << std::endl;
+        num_triangles += mesh.num_triangles;
     }
+    std::cerr << "Total triangle count: " << num_triangles << std::endl;
 
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
@@ -640,7 +645,7 @@ int main( int argc, char** argv )
 
             // Default scene
 
-#if 0
+#if 1
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/cognacglass.obj" );
             mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( 0.0f, 0.0f, -5.0f ) ) );
 
@@ -654,7 +659,6 @@ int main( int argc, char** argv )
             for (int i = 0; i < 16; ++i) {
                 std::stringstream ss;
                 ss << base_path << "Mesh" << std::setfill('0') << std::setw(3) << i << ".ply";
-                std::cerr << ss.str() << std::endl;
                 mesh_files.push_back( ss.str() );
                 mesh_xforms.push_back( optix::Matrix4x4::identity() );
             }
