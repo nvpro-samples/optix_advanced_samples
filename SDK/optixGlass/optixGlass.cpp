@@ -42,6 +42,7 @@
 #include <GLFW/glfw3.h>
 
 #include <optixu/optixpp_namespace.h>
+#include <optixu/optixu_aabb_namespace.h>
 #include <optixu/optixu_math_stream_namespace.h>
 
 #include <sutil.h>
@@ -323,7 +324,7 @@ Material createMaterial( const float3& extinction )
 }
 
 
-void createGeometry(
+optix::Aabb createGeometry(
         const std::vector<std::string>& filenames,
         const std::vector<optix::Matrix4x4>& xforms, Material material
         )
@@ -331,6 +332,7 @@ void createGeometry(
 
     const std::string ptx_path = ptxPath( "triangle_mesh_iterative.cu" );
 
+    optix::Aabb aabb;
     GeometryGroup geometry_group = context->createGeometryGroup();
     for (size_t i = 0; i < filenames.size(); ++i) {
 
@@ -344,11 +346,15 @@ void createGeometry(
 
         loadMesh( filenames[i], mesh, xforms[i] ); 
         geometry_group->addChild( mesh.geom_instance );
+
+        aabb.include( mesh.bbox_min, mesh.bbox_max );
     }
 
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
     context[ "top_object"   ]->set( geometry_group ); 
+
+    return aabb;
 }
 
 
@@ -619,15 +625,15 @@ int main( int argc, char** argv )
             mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( -5.0f, 0.0f, 0.0f ) ) );
         }
 
-        createGeometry( mesh_files, mesh_xforms, material );
+        const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, material );
 
         // Note: lighting comes from miss program
 
         context->validate();
 
         g_camera = new Camera( WIDTH, HEIGHT, 
-                make_float3( 14.0f, 14.0f, 14.0f ),  //eye
-                make_float3( 0.0f, 7.0f, 0.0f ),     //lookat
+                aabb.extent(),  // eye
+                aabb.center(),  // lookat
                 make_float3( 0.0f, 1.0f,  0.0f ),    //up
                 context["eye"], context["U"], context["V"], context["W"] );
 
