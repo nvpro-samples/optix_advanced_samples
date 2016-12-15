@@ -38,9 +38,6 @@ rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
 
 rtDeclareVariable(float3,       cutoff_color, , );
-rtDeclareVariable(float,        fresnel_exponent, , );
-rtDeclareVariable(float,        fresnel_minimum, , );
-rtDeclareVariable(float,        fresnel_maximum, , );
 rtDeclareVariable(float,        refraction_index, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
@@ -73,57 +70,66 @@ static __device__ __inline__ float3 exp( const float3& x )
   return make_float3(exp(x.x), exp(x.y), exp(x.z));
 }
 
+static __device__ __inline__ float fresnel( float cos_theta_i, float cos_theta_t, float eta )
+{
+    const float rs = ( cos_theta_i - cos_theta_t*eta ) / 
+                     ( cos_theta_i + eta*cos_theta_t );
+    const float rp = ( cos_theta_i*eta - cos_theta_t ) /
+                     ( cos_theta_i*eta + cos_theta_t );
+
+    return 0.5f * ( rs*rs + rp*rp );
+}
+
 // -----------------------------------------------------------------------------
 
 RT_PROGRAM void closest_hit_radiance()
 {
-  // intersection vectors
-  const float3 n = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, shading_normal)); // normal
-  const float3 fhp = rtTransformPoint(RT_OBJECT_TO_WORLD, front_hit_point);
-  const float3 bhp = rtTransformPoint(RT_OBJECT_TO_WORLD, back_hit_point);
+    const float3 w_out = -ray.direction;
+    float3 normal = normalize(rtTransformNormal(RT_OBJECT_TO_WORLD, shading_normal));
+    float cos_theta_i = optix::dot( w_out, normal );
 
-  // Refract and check for total internal reflection
-  float3 transmission_direction;
-  const bool tir = !( refract(transmission_direction, ray.direction, n, refraction_index) );
+    float eta;
+    float3 attenuation = make_float3( 1.0f );
+    if( cos_theta_i > 0.0f ) {
+        // Ray is entering 
+        eta = refraction_index;  // Note: does not handle nested dielectrics
+    } else {
+        // Ray is exiting.
+        attenuation = exp(extinction_constant * t_hit);
+        eta         = 1.0f / refraction_index;
+        cos_theta_i = -cos_theta_i;
+        normal      = -normal;
+    }
 
-  // check for external or internal reflection
-  const float cos_theta_i = dot(ray.direction, n);
-  float cos_theta = 0.0f;
-  if ( !tir ) {
-      if (cos_theta_i < 0.0f) {
-          cos_theta = -cos_theta_i;
-      } else {
-          cos_theta = dot(transmission_direction, n);
-      }
-  }
+    float3 w_t;
+    const bool tir           = !optix::refract( w_t, -w_out, normal, eta );
 
-  const float reflection_weight = tir ? 1.0f : fresnel_schlick(cos_theta, fresnel_exponent, fresnel_minimum, fresnel_maximum);
-  const float P = /*reflection_weight*/ tir ? 1.0f : 0.5f;
-  const bool do_reflection = ( rnd( prd_radiance.seed ) <  P );
+    const float cos_theta_t  = -optix::dot( normal, w_t );
+    const float R            = tir  ?
+                               1.0f :
+                               fresnel( cos_theta_i, cos_theta_t, eta );
 
-  float3 result = make_float3(0.0f);
-  float3 color = cutoff_color;
+    float3 traced_color = cutoff_color;
 
-  if ( do_reflection )  {
-      if (prd_radiance.depth < max_depth) {
-          const float3 r = reflect(ray.direction, n);
-          color = TraceRay( fhp, r, prd_radiance );
-      }
-      result += ( reflection_weight / P ) * reflection_color * color;
-  }
-  else {  // refraction
-      if (prd_radiance.depth < max_depth) {
-          color = TraceRay(bhp, transmission_direction, prd_radiance);
-      }
-      result += ( ( 1.0f - reflection_weight ) / ( 1 - P ) )* refraction_color * color;
-  }
+    const float z = rnd( prd_radiance.seed );
+    if( z <= R ) {
+        // Reflect
+        if (prd_radiance.depth < max_depth) {
+            const float3 w_in = optix::reflect( -w_out, normal ); 
+            const float3 fhp = rtTransformPoint(RT_OBJECT_TO_WORLD, front_hit_point);
+            traced_color = TraceRay( fhp, w_in, prd_radiance );
+        }
+        prd_radiance.result = reflection_color*attenuation*traced_color;
+    } else {
+        // Refract
+        if (prd_radiance.depth < max_depth) {
+            const float3 w_in = w_t;
+            const float3 bhp = rtTransformPoint(RT_OBJECT_TO_WORLD, back_hit_point);
+            traced_color = TraceRay( bhp, w_in, prd_radiance );
+        }
+        prd_radiance.result = refraction_color*attenuation*traced_color;
+    }
 
-  if( cos_theta_i > 0 ) {
-    // Beer's Law attenuation when exiting surface
-    result *= exp(extinction_constant * t_hit);
-  }
-
-  prd_radiance.result = result;
 }
 
 
