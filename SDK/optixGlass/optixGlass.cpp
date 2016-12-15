@@ -55,10 +55,8 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <iomanip>
 #include <iostream>
 #include <stdint.h>
-#include <sstream>
 
 using namespace optix;
 
@@ -647,7 +645,6 @@ int main( int argc, char** argv )
 
             // Default scene
 
-#if 1
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/cognacglass.obj" );
             mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( 0.0f, 0.0f, -5.0f ) ) );
 
@@ -656,15 +653,6 @@ int main( int argc, char** argv )
 
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/waterglass.obj" );
             mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( -5.0f, 0.0f, 0.0f ) ) );
-#else
-            const std::string base_path = "/mnt/wd/models-benedikt/dragon/dragon/models/";
-            for (int i = 0; i < 16; ++i) {
-                std::stringstream ss;
-                ss << base_path << "Mesh" << std::setfill('0') << std::setw(3) << i << ".ply";
-                mesh_files.push_back( ss.str() );
-                mesh_xforms.push_back( optix::Matrix4x4::identity() );
-            }
-#endif
         }
 
         const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, material );
