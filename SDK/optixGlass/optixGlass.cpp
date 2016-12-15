@@ -65,6 +65,7 @@ using namespace optix;
 const char* const SAMPLE_NAME = "optixGlass";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
+const float3 DEFAULT_EXTINCTION = make_float3( 0.1f, 0.63, 0.3f );
 
 //------------------------------------------------------------------------------
 //
@@ -318,7 +319,7 @@ void createContext( bool use_pbo )
 }
 
 
-Material createMaterial( const float3& extinction )
+Material createMaterial( )
 {
     const std::string ptx_path = ptxPath( "glass.cu" );
     Program ch_program = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
@@ -335,6 +336,7 @@ Material createMaterial( const float3& extinction )
     material["reflection_color"   ]->setFloat( 0.99f, 0.99f, 0.99f );
 
     // Set this on the global context so it's easy to change in the gui
+    const float3 extinction = DEFAULT_EXTINCTION;
     context["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );
 
     return material;
@@ -481,7 +483,7 @@ void glfwRun()
     glViewport(0, 0, WIDTH, HEIGHT );
 
     unsigned int frame_count = 0;
-    float3 glass_extinction = make_float3( 1.0f, 1.0f, 1.0f );
+    float3 glass_extinction = DEFAULT_EXTINCTION;
     int max_depth = 10;
 
     while( !glfwWindowShouldClose( g_window ) )
@@ -639,7 +641,7 @@ int main( int argc, char** argv )
 
         createContext( use_pbo );
 
-        Material material = createMaterial( make_float3(1.0f, 1.0f, 1.0f) );
+        Material material = createMaterial();
 
         if ( mesh_files.empty() ) {
 
