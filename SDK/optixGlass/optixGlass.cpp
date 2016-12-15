@@ -308,7 +308,6 @@ Material createMaterial( const float3& extinction )
     Material material = context->createMaterial();
     material->setClosestHitProgram( 0, ch_program );
 
-    material["importance_cutoff"  ]->setFloat( 0.01f );
     material["cutoff_color"       ]->setFloat( 0.2f, 0.2f, 0.2f );
     material["fresnel_exponent"   ]->setFloat( 4.0f );
     material["fresnel_minimum"    ]->setFloat( 0.1f );
@@ -316,8 +315,6 @@ Material createMaterial( const float3& extinction )
     material["refraction_index"   ]->setFloat( 1.4f );
     material["refraction_color"   ]->setFloat( 0.99f, 0.99f, 0.99f );
     material["reflection_color"   ]->setFloat( 0.99f, 0.99f, 0.99f );
-    material["refraction_maxdepth"]->setInt( 10 );
-    material["reflection_maxdepth"]->setInt( 5 );
 
     // Set this on the global context so it's easy to change in the gui
     context["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );

@@ -37,14 +37,11 @@ rtDeclareVariable(float3, back_hit_point, attribute back_hit_point, );
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
 
-rtDeclareVariable(float,        importance_cutoff, , );
 rtDeclareVariable(float3,       cutoff_color, , );
 rtDeclareVariable(float,        fresnel_exponent, , );
 rtDeclareVariable(float,        fresnel_minimum, , );
 rtDeclareVariable(float,        fresnel_maximum, , );
 rtDeclareVariable(float,        refraction_index, , );
-rtDeclareVariable(int,          refraction_maxdepth, , );  // TODO
-rtDeclareVariable(int,          reflection_maxdepth, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
 rtDeclareVariable(float3,       extinction_constant, , );
@@ -52,7 +49,6 @@ rtDeclareVariable(float3,       extinction_constant, , );
 struct PerRayData_radiance
 {
   float3 result;
-  float importance;
   int depth;
   unsigned int seed;
 };
@@ -61,13 +57,12 @@ rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
 // -----------------------------------------------------------------------------
 
-static __device__ __inline__ float3 TraceRay(float3 origin, float3 direction, PerRayData_radiance old_prd )
+static __device__ __inline__ float3 TraceRay(float3 origin, float3 direction, PerRayData_radiance prd_in )
 {
   optix::Ray ray = optix::make_Ray( origin, direction, radiance_ray_type, 0.0f, RT_DEFAULT_MAX );
   PerRayData_radiance prd;
-  prd.depth = old_prd.depth+1;
-  prd.importance = old_prd.importance;  // not needed
-  prd.seed = old_prd.seed;  // TODO: revisit all this
+  prd.depth = prd_in.depth+1;
+  prd.seed = prd_in.seed;
 
   rtTrace( top_object, ray, prd );
   return prd.result;

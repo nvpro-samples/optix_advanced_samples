@@ -36,7 +36,6 @@ using namespace optix;
 struct PerRayData_radiance
 {
   float3 result;
-  float  importance;
   int    depth;
   unsigned int seed;
 };
@@ -72,7 +71,6 @@ RT_PROGRAM void pinhole_camera()
   optix::Ray ray(ray_origin, ray_direction, radiance_ray_type, scene_epsilon );
 
   PerRayData_radiance prd;
-  prd.importance = 1.f;
   prd.depth = 0;
   prd.seed = seed;
 
