@@ -646,7 +646,7 @@ int main( int argc, char** argv )
             // Default scene
 
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/cognacglass.obj" );
-            mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( 0.0f, 0.0f, -5.0f ) ) );
+            mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( 0.0f, 0.0f, -5.2f ) ) );
 
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/wineglass.obj" );
             mesh_xforms.push_back( optix::Matrix4x4::identity() );
