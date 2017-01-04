@@ -38,6 +38,8 @@ set(sources
   rply-1.01/rply.h
   Arcball.cpp
   Arcball.h
+  Camera.cpp
+  Camera.h
   HDRLoader.cpp
   HDRLoader.h
   Mesh.cpp
