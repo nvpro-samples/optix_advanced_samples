@@ -47,7 +47,7 @@
 
 #include <sutil.h>
 #include "commonStructs.h"
-#include <Arcball.h>
+#include <Camera.h>
 #include <OptiXMesh.h>
 
 #include <imgui/imgui.h>
@@ -74,161 +74,7 @@ const float3 DEFAULT_EXTINCTION = make_float3( 0.1f, 0.63, 0.3f );
 Context      context = 0;
 GLFWwindow*  g_window = 0; 
 unsigned int g_accumulation_frame = 0;
-
-// Camera state for raygen program
-struct Camera
-{
-    Camera( unsigned int width, unsigned int height, 
-            const float3& camera_eye,
-            const float3& camera_lookat,
-            const float3& camera_up,
-            Variable eye, Variable u, Variable v, Variable w) 
-
-        : m_width( width ),
-        m_height( height ),
-        m_camera_eye( camera_eye ),
-        m_save_camera_lookat( camera_lookat ),
-        m_camera_lookat( camera_lookat ),
-        m_camera_up( camera_up ),
-        m_camera_rotate( Matrix4x4::identity() ),
-        m_variable_eye( eye ),
-        m_variable_u( u ),
-        m_variable_v( v ),
-        m_variable_w( w )
-        {
-            apply();
-        }
-
-    // Compute derived uvw frame and write to OptiX context
-    void apply( )
-    {
-        const float vfov  = 45.0f;
-        const float aspect_ratio = static_cast<float>(m_width) /
-            static_cast<float>(m_height);
-
-        float3 camera_w;
-        sutil::calculateCameraVariables(
-                m_camera_eye, m_camera_lookat, m_camera_up, vfov, aspect_ratio,
-                m_camera_u, m_camera_v, camera_w, /*fov_is_vertical*/ true );
-
-        const Matrix4x4 frame = Matrix4x4::fromBasis(
-                normalize( m_camera_u ),
-                normalize( m_camera_v ),
-                normalize( -camera_w ),
-                m_camera_lookat);
-        const Matrix4x4 frame_inv = frame.inverse();
-        // Apply camera rotation twice to match old SDK behavior
-        const Matrix4x4 trans   = frame*m_camera_rotate*m_camera_rotate*frame_inv;
-
-        m_camera_eye    = make_float3( trans*make_float4( m_camera_eye,    1.0f ) );
-        m_camera_lookat = make_float3( trans*make_float4( m_camera_lookat, 1.0f ) );
-        m_camera_up     = make_float3( trans*make_float4( m_camera_up,     0.0f ) );
-
-        sutil::calculateCameraVariables(
-                m_camera_eye, m_camera_lookat, m_camera_up, vfov, aspect_ratio,
-                m_camera_u, m_camera_v, camera_w, true );
-
-        m_camera_rotate = Matrix4x4::identity();
-
-        // Write variables to OptiX context
-        m_variable_eye->setFloat( m_camera_eye );
-        m_variable_u->setFloat( m_camera_u );
-        m_variable_v->setFloat( m_camera_v );
-        m_variable_w->setFloat( camera_w );
-    }
-
-    void reset_lookat() {
-        const float3 translation = m_save_camera_lookat - m_camera_lookat;
-        m_camera_eye += translation;
-        m_camera_lookat = m_save_camera_lookat;
-        apply();
-    }
-
-    bool process_mouse( float x, float y, bool left_button_down, bool right_button_down, bool middle_button_down )
-    {
-        static sutil::Arcball arcball;
-        static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
-        static bool   have_mouse_prev_pos = false;
-
-        bool dirty = false;
-
-        if ( left_button_down || right_button_down || middle_button_down ) {
-            if ( have_mouse_prev_pos ) {
-                if ( left_button_down ) {
-
-                    const float2 from = { mouse_prev_pos.x, mouse_prev_pos.y };
-                    const float2 to   = { x, y };
-
-                    const float2 a = { from.x / m_width, from.y / m_height };
-                    const float2 b = { to.x   / m_width, to.y   / m_height };
-
-                    m_camera_rotate = arcball.rotate( b, a );
-
-                } else if ( right_button_down ) {
-                    const float dx = ( x - mouse_prev_pos.x ) / m_width;
-                    const float dy = ( y - mouse_prev_pos.y ) / m_height;
-                    const float dmax = fabsf( dx ) > fabs( dy ) ? dx : dy;
-                    const float scale = fminf( dmax, 0.9f );
-
-                    m_camera_eye = m_camera_eye + (m_camera_lookat - m_camera_eye)*scale;
-
-                } else if ( middle_button_down ) {
-                    const float dx = ( x - mouse_prev_pos.x ) / m_width;
-                    const float dy = ( y - mouse_prev_pos.y ) / m_height;
-
-                    float3 translation = -dx*m_camera_u + dy*m_camera_v;
-                    m_camera_eye    = m_camera_eye + translation;
-                    m_camera_lookat = m_camera_lookat + translation;
-                }
-
-                apply();
-                dirty = true;
-
-            }
-
-            have_mouse_prev_pos = true;
-            mouse_prev_pos.x = x;
-            mouse_prev_pos.y = y;
-
-        } else {
-            have_mouse_prev_pos = false;
-        }
-
-        return dirty;
-    }
-
-    bool resize( unsigned int w, unsigned int h) {
-        if ( w == m_width && h == m_height) return false;
-        m_width = w;
-        m_height = h;
-        apply();
-        return true;
-    }
-
-    unsigned int width() const  { return m_width; }
-    unsigned int height() const { return m_height; }
-
-    private:
-    unsigned int m_width;
-    unsigned int m_height;
-
-    float3    m_camera_eye;
-    float3    m_camera_lookat;
-    const float3 m_save_camera_lookat;
-    float3    m_camera_up;
-    float3    m_camera_u; // derived
-    float3    m_camera_v; // derived
-    Matrix4x4 m_camera_rotate;
-
-    // Handles for setting derived values for OptiX context
-    Variable  m_variable_eye;
-    Variable  m_variable_u;
-    Variable  m_variable_v;
-    Variable  m_variable_w;
-
-};
-
-Camera* g_camera = NULL;
+sutil::Camera* g_camera = NULL;
 
 
 //------------------------------------------------------------------------------
@@ -661,7 +507,7 @@ int main( int argc, char** argv )
 
         context->validate();
 
-        g_camera = new Camera( WIDTH, HEIGHT, 
+        g_camera = new sutil::Camera( WIDTH, HEIGHT, 
                 aabb.extent(),  // eye
                 aabb.center(),  // lookat
                 make_float3( 0.0f, 1.0f,  0.0f ),    //up
