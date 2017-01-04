@@ -491,14 +491,11 @@ int main( int argc, char** argv )
 
             // Default scene
 
-            mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/cognacglass.obj" );
-            mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( 0.0f, 0.0f, -5.0f ) ) );
-
-            mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/wineglass.obj" );
-            mesh_xforms.push_back( optix::Matrix4x4::identity() );
-
-            mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/waterglass.obj" );
-            mesh_xforms.push_back( optix::Matrix4x4::translate( make_float3( -5.0f, 0.0f, 0.0f ) ) );
+            const optix::Matrix4x4 xform = optix::Matrix4x4::rotate( -M_PI/2.0, make_float3( 0.0f, 1.0f, 0.0f) );
+            mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/teapot_lid.ply" );
+            mesh_xforms.push_back( xform );
+            mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/teapot_body.ply" );
+            mesh_xforms.push_back( xform );
         }
 
         const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, material );
@@ -508,7 +505,7 @@ int main( int argc, char** argv )
         context->validate();
 
         g_camera = new sutil::Camera( WIDTH, HEIGHT, 
-                aabb.extent(),  // eye
+                optix::make_float3( 0.0f, 1.5f*aabb.extent(1), 1.5f*aabb.extent(2) ),
                 aabb.center(),  // lookat
                 make_float3( 0.0f, 1.0f,  0.0f ),    //up
                 context["eye"], context["U"], context["V"], context["W"] );
@@ -519,8 +516,8 @@ int main( int argc, char** argv )
         }
         else
         {
-            // Accumulate a few frames for anti-aliasing
-            for ( unsigned int frame = 0; frame < 10; ++frame ) {
+            // Accumulate frames for anti-aliasing
+            for ( unsigned int frame = 0; frame < 256; ++frame ) {
                 context["frame"]->setUint( frame );
                 context->launch( 0, WIDTH, HEIGHT );
             }
