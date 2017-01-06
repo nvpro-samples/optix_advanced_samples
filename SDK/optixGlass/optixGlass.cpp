@@ -365,15 +365,11 @@ void glfwRun()
                     ImGuiWindowFlags_NoScrollbar;
 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
-            ImGui::Begin("extinction", 0, window_flags );
+            ImGui::Begin("controls", 0, window_flags );
             if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f )) {
                 context["extinction_constant"]->setFloat( log(glass_extinction.x), log(glass_extinction.y), log(glass_extinction.z) );
                 g_accumulation_frame = 0;
             }
-            ImGui::End();
-
-            ImGui::SetNextWindowPos( ImVec2( 2.0f, 80.0f ) );
-            ImGui::Begin("max depth", 0, window_flags );
             if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
                 context["max_depth"]->setInt( max_depth );
                 g_accumulation_frame = 0;
