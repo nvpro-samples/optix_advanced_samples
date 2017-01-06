@@ -90,6 +90,9 @@ bool sutil::Camera::process_mouse( float x, float y, bool left_button_down, bool
     static float2 mouse_prev_pos = make_float2( 0.0f, 0.0f );
     static bool   have_mouse_prev_pos = false;
 
+    // No action if mouse did not move
+    if ( mouse_prev_pos.x == x && mouse_prev_pos.y == y ) return false;
+
     bool dirty = false;
 
     if ( left_button_down || right_button_down || middle_button_down ) {
