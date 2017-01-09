@@ -27,7 +27,6 @@
 using namespace optix;
 
 rtDeclareVariable(rtObject,     top_object, , );
-rtDeclareVariable(float,        scene_epsilon, , );
 rtDeclareVariable(int,          max_depth, , );
 rtDeclareVariable(unsigned int, radiance_ray_type, , );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
