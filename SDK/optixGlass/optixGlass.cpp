@@ -154,7 +154,7 @@ void createContext( bool use_pbo )
     context["background_dark"]->setFloat( 0.3f, 0.3f, 0.3f );
 
     // align background's up direction with camera's look direction
-    float3 bg_up = normalize( make_float3(-14.0f, -14.0f, -7.0f) );
+    float3 bg_up = normalize( make_float3(0.0f, -1.0f, -1.0f) );
 
     // tilt the background's up direction in the direction of the camera's up direction
     bg_up.y += 1.0f;
