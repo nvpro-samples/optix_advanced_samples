@@ -21,6 +21,7 @@
 
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
+#include "prd.h"
 
 using namespace optix;
 
@@ -29,14 +30,6 @@ rtDeclareVariable(float3, background_dark, , );  // zenith color
 rtDeclareVariable(float3, up, , );               // global up vector
 
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
-
-struct PerRayData_radiance
-{
-  float3 result;
-  float  importance;
-  int    depth;
-};
-
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
 // -----------------------------------------------------------------------------

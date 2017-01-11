@@ -22,6 +22,7 @@
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
 #include "helpers.h"
+#include "prd.h"
 #include "random.h"
 
 using namespace optix;
@@ -41,13 +42,6 @@ rtDeclareVariable(float,        refraction_index, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
 rtDeclareVariable(float3,       extinction_constant, , );
-
-struct PerRayData_radiance
-{
-  float3 result;
-  int depth;
-  unsigned int seed;
-};
 
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
