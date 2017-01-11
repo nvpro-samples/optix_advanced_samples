@@ -163,7 +163,7 @@ void createContext( bool use_pbo )
 }
 
 
-Material createMaterial( )
+Material createGlassMaterial( )
 {
     const std::string ptx_path = ptxPath( "glass.cu" );
     Program ch_program = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
@@ -186,10 +186,25 @@ Material createMaterial( )
     return material;
 }
 
+Material createGridMaterial()
+{
+    const std::string ptx_path = ptxPath( "diffuse_grid.cu" );
+    Program ch_program = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
+
+    Material material = context->createMaterial();
+    material->setClosestHitProgram( 0, ch_program );
+
+    material["frequency"]->setFloat( 10.0f );
+
+    return material;
+}
+
 
 optix::Aabb createGeometry(
         const std::vector<std::string>& filenames,
-        const std::vector<optix::Matrix4x4>& xforms, Material material
+        const std::vector<optix::Matrix4x4>& xforms, 
+        const Material glass_material,
+        const Material ground_material
         )
 {
 
@@ -206,7 +221,7 @@ optix::Aabb createGeometry(
         // override defaults
         mesh.intersection = context->createProgramFromPTXFile( ptx_path, "mesh_intersect" );
         mesh.bounds = context->createProgramFromPTXFile( ptx_path, "mesh_bounds" );
-        mesh.material = material;
+        mesh.material = glass_material;
 
         loadMesh( filenames[i], mesh, xforms[i] ); 
         geometry_group->addChild( mesh.geom_instance );
@@ -217,6 +232,31 @@ optix::Aabb createGeometry(
         num_triangles += mesh.num_triangles;
     }
     std::cerr << "Total triangle count: " << num_triangles << std::endl;
+
+    {
+        // Ground plane
+        const std::string floor_ptx = ptxPath( "parallelogram.cu" );
+        Geometry parallelogram = context->createGeometry();
+        parallelogram->setPrimitiveCount( 1u );
+        parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( floor_ptx, "bounds" ) );
+        parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( floor_ptx, "intersect" ) );
+        const float extent = 1.5f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
+        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.01f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
+        float3 v1 = make_float3( 0.0f, 0.0f, extent );
+        float3 v2 = make_float3( extent, 0.0f, 0.0f );
+        const float3 normal = normalize( cross( v1, v2 ) );
+        float d = dot( normal, anchor );
+        v1 *= 1.0f / dot( v1, v1 );
+        v2 *= 1.0f / dot( v2, v2 );
+        float4 plane = make_float4( normal, d );
+        parallelogram["plane"]->setFloat( plane );
+        parallelogram["v1"]->setFloat( v1 );
+        parallelogram["v2"]->setFloat( v2 );
+        parallelogram["anchor"]->setFloat( anchor );
+
+        GeometryInstance instance = context->createGeometryInstance( parallelogram, &ground_material, &ground_material + 1 );
+        geometry_group->addChild( instance );
+    }
 
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
@@ -481,8 +521,6 @@ int main( int argc, char** argv )
 
         createContext( use_pbo );
 
-        Material material = createMaterial();
-
         if ( mesh_files.empty() ) {
 
             // Default scene
@@ -494,7 +532,9 @@ int main( int argc, char** argv )
             mesh_xforms.push_back( xform );
         }
 
-        const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, material );
+        Material glass_material = createGlassMaterial();
+        Material ground_material = createGridMaterial();
+        const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, glass_material, ground_material );
 
         // Note: lighting comes from miss program
 

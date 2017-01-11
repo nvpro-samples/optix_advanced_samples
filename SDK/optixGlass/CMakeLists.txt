@@ -27,8 +27,10 @@ OPTIX_add_sample_executable( optixGlass
     optixGlass.cpp
 
     ${SAMPLES_CUDA_DIR}/accum_camera.cu
+    ${SAMPLES_CUDA_DIR}/diffuse_grid.cu
     ${SAMPLES_CUDA_DIR}/glass.cu
     ${SAMPLES_CUDA_DIR}/gradientbg.cu
+    ${SAMPLES_CUDA_DIR}/parallelogram.cu
     ${SAMPLES_CUDA_DIR}/triangle_mesh_iterative.cu
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
