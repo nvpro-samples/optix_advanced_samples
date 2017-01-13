@@ -240,7 +240,7 @@ optix::Aabb createGeometry(
         parallelogram->setPrimitiveCount( 1u );
         parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( floor_ptx, "bounds" ) );
         parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( floor_ptx, "intersect" ) );
-        const float extent = 1.5f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
+        const float extent = 3.0f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
         const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.01f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
         float3 v1 = make_float3( 0.0f, 0.0f, extent );
         float3 v2 = make_float3( extent, 0.0f, 0.0f );
