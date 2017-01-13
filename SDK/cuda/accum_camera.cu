@@ -29,16 +29,11 @@
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
 #include "helpers.h"
+#include "prd.h"
 #include "random.h"
 
 using namespace optix;
 
-struct PerRayData_radiance
-{
-  float3 result;
-  int    depth;
-  unsigned int seed;
-};
 
 rtDeclareVariable(float3,        eye, , );
 rtDeclareVariable(float3,        U, , );
