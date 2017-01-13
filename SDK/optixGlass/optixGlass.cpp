@@ -235,7 +235,7 @@ optix::Aabb createGeometry(
 
     {
         // Ground plane
-        const std::string floor_ptx = ptxPath( "parallelogram.cu" );
+        const std::string floor_ptx = ptxPath( "parallelogram_iterative.cu" );
         Geometry parallelogram = context->createGeometry();
         parallelogram->setPrimitiveCount( 1u );
         parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( floor_ptx, "bounds" ) );

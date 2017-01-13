@@ -37,6 +37,7 @@ rtDeclareVariable(float3, v2, , );
 rtDeclareVariable(float3, anchor, , );
 rtDeclareVariable(int, lgt_instance, , ) = {0};
 
+rtDeclareVariable( float3, back_hit_point, attribute back_hit_point, );
 rtDeclareVariable(float3, front_hit_point, attribute front_hit_point, );
 rtDeclareVariable(float3, texcoord, attribute texcoord, ); 
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, ); 
@@ -61,12 +62,9 @@ RT_PROGRAM void intersect(int primIdx)
           texcoord = make_float3(a1,a2,0);
           lgt_idx = lgt_instance;
 
-          // Offset hit point
-          if ( dot( ray.direction, n ) > 0.0f ) {
-              front_hit_point = offset( p, -n );
-          } else {
-              front_hit_point = offset( p, n );
-          }
+          refine_and_offset_hitpoint( ray.origin + t*ray.direction, ray.direction,
+              n, anchor,
+              back_hit_point, front_hit_point );
 
           rtReportIntersection( 0 );
         }
