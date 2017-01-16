@@ -39,5 +39,6 @@ RT_PROGRAM void miss()
   const float t = max(dot(ray.direction, up), 0.0f);
   const float3 result = lerp(background_light, background_dark, t);
 
-  prd_radiance.result = result;
+  prd_radiance.radiance = result;
+  prd_radiance.done = true;
 }

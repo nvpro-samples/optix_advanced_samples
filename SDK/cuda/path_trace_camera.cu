@@ -29,21 +29,10 @@
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
 #include "helpers.h"
+#include "prd.h"
 #include "random.h"
 
 using namespace optix;
-
-struct PerRayData_radiance
-{
-  float3 result;
-  int depth;
-  unsigned int seed;
-};
-
-struct PerRayData_shadow
-{
-    float3 attenuation;
-};
 
 
 rtDeclareVariable(float3,        eye, , );
@@ -52,6 +41,8 @@ rtDeclareVariable(float3,        V, , );
 rtDeclareVariable(float3,        W, , );
 rtDeclareVariable(float3,        bad_color, , );
 rtDeclareVariable(float,         scene_epsilon, , );
+rtDeclareVariable(float3,        cutoff_color, , );
+rtDeclareVariable(int,           max_depth, , );
 rtBuffer<uchar4, 2>              output_buffer;
 rtBuffer<float4, 2>              accum_buffer;
 rtDeclareVariable(rtObject,      top_object, , );
@@ -73,20 +64,51 @@ RT_PROGRAM void pinhole_camera()
   float2 d = (make_float2(launch_index) + subpixel_jitter) / make_float2(screen) * 2.f - 1.f;
   float3 ray_origin = eye;
   float3 ray_direction = normalize(d.x*U + d.y*V + W);
-  
-  optix::Ray ray(ray_origin, ray_direction, radiance_ray_type, scene_epsilon );
 
   PerRayData_radiance prd;
   prd.depth = 0;
   prd.seed = seed;
+  prd.done = false;
 
-  rtTrace(top_object, ray, prd);
+  // These represent the current shading state and will be set by the closest-hit or miss program
+
+  // brdf attenuation from surface interaction
+  prd.attenuation = make_float3( 1.0f, 1.0f, 1.0f );
+
+  // light from a light source or miss program
+  prd.radiance = make_float3( 0.0f, 0.0f, 0.0f );
+
+  // next ray to be traced
+  prd.origin = make_float3( 0.0f, 0.0f, 0.0f );
+  prd.direction = make_float3( 0.0f, 0.0f, 0.0f );
+
+  float3 result = make_float3( 0.0f, 0.0f, 0.0f );
+
+  for(;;) {
+      optix::Ray ray(ray_origin, ray_direction, radiance_ray_type, scene_epsilon );
+      rtTrace(top_object, ray, prd);
+
+      result += prd.attenuation * prd.radiance;
+
+      if ( prd.done ) {
+          break;
+      } else if ( prd.depth >= max_depth ) {
+        result += prd.attenuation * cutoff_color;
+        break;
+      }
+
+      prd.depth++;
+
+      // Update ray data for the next path segment
+      ray_origin = prd.origin;
+      ray_direction = prd.direction;
+  }
 
   float4 acc_val = accum_buffer[launch_index];
   if( frame > 0 ) {
-    acc_val = lerp( acc_val, make_float4( prd.result, 0.f), 1.0f / static_cast<float>( frame+1 ) );
+    acc_val = lerp( acc_val, make_float4( result, 0.f ), 1.0f / static_cast<float>( frame+1 ) );
   } else {
-    acc_val = make_float4(prd.result, 0.f);
+    acc_val = make_float4( result, 0.f );
   }
   output_buffer[launch_index] = make_color( make_float3( acc_val ) );
   accum_buffer[launch_index] = acc_val;

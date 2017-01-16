@@ -32,13 +32,16 @@
 
 struct PerRayData_radiance
 {
-  float3 result;
   int depth;
   unsigned int seed;
+
+  // shading state
+  bool done;
+  float3 attenuation;
+  float3 radiance;
+  float3 origin;
+  float3 direction;
+
 };
 
-struct PerRayData_shadow
-{
-    float3 attenuation;
-};
 

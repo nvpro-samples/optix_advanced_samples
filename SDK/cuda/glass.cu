@@ -28,8 +28,6 @@
 using namespace optix;
 
 rtDeclareVariable(rtObject,     top_object, , );
-rtDeclareVariable(int,          max_depth, , );
-rtDeclareVariable(unsigned int, radiance_ray_type, , );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
 rtDeclareVariable(float3, front_hit_point, attribute front_hit_point, );
 rtDeclareVariable(float3, back_hit_point, attribute back_hit_point, );
@@ -37,7 +35,6 @@ rtDeclareVariable(float3, back_hit_point, attribute back_hit_point, );
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
 
-rtDeclareVariable(float3,       cutoff_color, , );
 rtDeclareVariable(float,        refraction_index, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
@@ -47,16 +44,6 @@ rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
 // -----------------------------------------------------------------------------
 
-static __device__ __inline__ float3 TraceRay(float3 origin, float3 direction, PerRayData_radiance prd_in )
-{
-  optix::Ray ray = optix::make_Ray( origin, direction, radiance_ray_type, 0.0f, RT_DEFAULT_MAX );
-  PerRayData_radiance prd;
-  prd.depth = prd_in.depth+1;
-  prd.seed = prd_in.seed;
-
-  rtTrace( top_object, ray, prd );
-  return prd.result;
-}
 
 static __device__ __inline__ float3 exp( const float3& x )
 {
@@ -102,25 +89,21 @@ RT_PROGRAM void closest_hit_radiance()
                                1.0f :
                                fresnel( cos_theta_i, cos_theta_t, eta );
 
-    float3 traced_color = cutoff_color;
-
     const float z = rnd( prd_radiance.seed );
     if( z <= R ) {
         // Reflect
-        if (prd_radiance.depth < max_depth) {
-            const float3 w_in = optix::reflect( -w_out, normal ); 
-            const float3 fhp = rtTransformPoint(RT_OBJECT_TO_WORLD, front_hit_point);
-            traced_color = TraceRay( fhp, w_in, prd_radiance );
-        }
-        prd_radiance.result = reflection_color*attenuation*traced_color;
+        const float3 w_in = optix::reflect( -w_out, normal ); 
+        const float3 fhp = rtTransformPoint(RT_OBJECT_TO_WORLD, front_hit_point);
+        prd_radiance.origin = fhp;
+        prd_radiance.direction = w_in; 
+        prd_radiance.attenuation *= reflection_color*attenuation;
     } else {
         // Refract
-        if (prd_radiance.depth < max_depth) {
-            const float3 w_in = w_t;
-            const float3 bhp = rtTransformPoint(RT_OBJECT_TO_WORLD, back_hit_point);
-            traced_color = TraceRay( bhp, w_in, prd_radiance );
-        }
-        prd_radiance.result = refraction_color*attenuation*traced_color;
+        const float3 w_in = w_t;
+        const float3 bhp = rtTransformPoint(RT_OBJECT_TO_WORLD, back_hit_point);
+        prd_radiance.origin = bhp;
+        prd_radiance.direction = w_in; 
+        prd_radiance.attenuation *= refraction_color*attenuation;
     }
 
 }

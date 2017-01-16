@@ -26,7 +26,7 @@ include_directories(${SAMPLES_CUDA_DIR})
 OPTIX_add_sample_executable( optixGlass
     optixGlass.cpp
 
-    ${SAMPLES_CUDA_DIR}/accum_camera.cu
+    ${SAMPLES_CUDA_DIR}/path_trace_camera.cu
     ${SAMPLES_CUDA_DIR}/diffuse_grid.cu
     ${SAMPLES_CUDA_DIR}/glass.cu
     ${SAMPLES_CUDA_DIR}/gradientbg.cu

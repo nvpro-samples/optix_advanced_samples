@@ -138,7 +138,7 @@ void createContext( bool use_pbo )
     context["accum_buffer"]->set( accum_buffer );
 
     // Ray generation program
-    std::string ptx_path( ptxPath( "accum_camera.cu" ) );
+    std::string ptx_path( ptxPath( "path_trace_camera.cu" ) );
     Program ray_gen_program = context->createProgramFromPTXFile( ptx_path, "pinhole_camera" );
     context->setRayGenerationProgram( 0, ray_gen_program );
 

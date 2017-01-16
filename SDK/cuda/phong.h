@@ -29,7 +29,6 @@
 #include <optix_world.h>
 #include "commonStructs.h"
 #include "helpers.h"
-#include "prd.h"
 
 rtDeclareVariable(int,               max_depth, , );
 rtBuffer<BasicLight>                 lights;
@@ -42,6 +41,20 @@ rtDeclareVariable(rtObject,          top_shadower, , );
 
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
+
+struct PerRayData_radiance
+{
+  float3 result;
+  int depth;
+  unsigned int seed;
+};
+
+struct PerRayData_shadow
+{
+    float3 attenuation;
+};
+
+
 rtDeclareVariable(PerRayData_radiance, prd, rtPayload, );
 rtDeclareVariable(PerRayData_shadow,   prd_shadow, rtPayload, );
 

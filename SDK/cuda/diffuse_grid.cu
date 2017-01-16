@@ -27,9 +27,6 @@
 using namespace optix;
 
 rtDeclareVariable(rtObject,     top_object, , );
-rtDeclareVariable(int,          max_depth, , );
-rtDeclareVariable(unsigned int, radiance_ray_type, , );
-rtDeclareVariable( float3,      cutoff_color, , );
 rtDeclareVariable( float,       frequency, , );
 
 rtDeclareVariable(float3,  shading_normal, attribute shading_normal, ); 
@@ -39,17 +36,6 @@ rtDeclareVariable( float3, texcoord, attribute texcoord, );
 
 rtDeclareVariable(optix::Ray, ray,   rtCurrentRay, );
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
-
-static __device__ __inline__ float3 TraceRay(float3 origin, float3 direction, PerRayData_radiance prd_in )
-{
-    optix::Ray ray = optix::make_Ray( origin, direction, radiance_ray_type, 0.0f, RT_DEFAULT_MAX );
-    PerRayData_radiance prd;
-    prd.depth = prd_in.depth+1;
-    prd.seed = prd_in.seed;
-
-    rtTrace( top_object, ray, prd );
-    return prd.result;
-}
 
 RT_PROGRAM void closest_hit_radiance()
 {
@@ -61,15 +47,14 @@ RT_PROGRAM void closest_hit_radiance()
     const float z1 = rnd( prd_radiance.seed );
     const float z2 = rnd( prd_radiance.seed );
     
-    float3 traced_color = cutoff_color;
-    if (prd_radiance.depth < max_depth) {
-        float3 w_in;
-        cosine_sample_hemisphere( z1, z2, w_in );
-        optix::Onb onb( ffnormal );
-        onb.inverse_transform( w_in );
-        const float3 fhp = rtTransformPoint( RT_OBJECT_TO_WORLD, front_hit_point );
-        traced_color = TraceRay( fhp, w_in, prd_radiance );
-    }
+    float3 w_in;
+    cosine_sample_hemisphere( z1, z2, w_in );
+    const optix::Onb onb( ffnormal );
+    onb.inverse_transform( w_in );
+    const float3 fhp = rtTransformPoint( RT_OBJECT_TO_WORLD, front_hit_point );
+
+    prd_radiance.origin = front_hit_point;
+    prd_radiance.direction = w_in;
     
     const float u = frequency * texcoord.x;
     const float uu = u - floorf( u );
@@ -82,7 +67,7 @@ RT_PROGRAM void closest_hit_radiance()
         smoothstep( 0.5f - linewidth, 0.5f - halflinewidth, vv ) - smoothstep( 0.5f + halflinewidth, 0.5f + linewidth, vv )
         );
     const float3 Kd = make_float3( gridval );
-    prd_radiance.result = Kd * traced_color;
+    prd_radiance.attenuation *= Kd;
 
 }
 
