@@ -63,7 +63,7 @@ RT_PROGRAM void mesh_intersect( int primIdx )
 
       // Calculate normals and tex coords 
       float3 geo_n = normalize( n );
-      if ( normal_buffer.size() == 0 || v_idx.x < 0 || v_idx.y < 0 || v_idx.z < 0 ) {
+      if ( normal_buffer.size() == 0 ) {
         shading_normal = geo_n;
       } else {
         float3 n0 = normal_buffer[ v_idx.x ];
@@ -73,7 +73,7 @@ RT_PROGRAM void mesh_intersect( int primIdx )
       }
       geometric_normal = geo_n;
 
-      if ( texcoord_buffer.size() == 0 || v_idx.x < 0 || v_idx.y < 0 || v_idx.z < 0 ) {
+      if ( texcoord_buffer.size() == 0 ) {
         texcoord = make_float3( 0.0f, 0.0f, 0.0f );
       } else {
 
