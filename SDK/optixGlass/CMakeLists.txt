@@ -26,14 +26,14 @@ include_directories(${SAMPLES_CUDA_DIR})
 OPTIX_add_sample_executable( optixGlass
     optixGlass.cpp
 
-    ${SAMPLES_CUDA_DIR}/path_trace_camera.cu
-    ${SAMPLES_CUDA_DIR}/diffuse_grid.cu
-    ${SAMPLES_CUDA_DIR}/glass.cu
-    ${SAMPLES_CUDA_DIR}/gradientbg.cu
+    path_trace_camera.cu
+    diffuse.cu
+    glass.cu
+    gradientbg.cu
+    prd.h
     ${SAMPLES_CUDA_DIR}/parallelogram_iterative.cu
     ${SAMPLES_CUDA_DIR}/triangle_mesh_iterative.cu
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
-    ${SAMPLES_CUDA_DIR}/prd.h
     )
 

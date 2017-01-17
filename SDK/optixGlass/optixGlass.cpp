@@ -186,9 +186,9 @@ Material createGlassMaterial( )
     return material;
 }
 
-Material createGridMaterial()
+Material createDiffuseMaterial()
 {
-    const std::string ptx_path = ptxPath( "diffuse_grid.cu" );
+    const std::string ptx_path = ptxPath( "diffuse.cu" );
     Program ch_program = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
 
     Material material = context->createMaterial();
@@ -535,7 +535,7 @@ int main( int argc, char** argv )
         }
 
         Material glass_material = createGlassMaterial();
-        Material ground_material = createGridMaterial();
+        Material ground_material = createDiffuseMaterial();
         const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, glass_material, ground_material );
 
         // Note: lighting comes from miss program
