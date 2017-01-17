@@ -194,7 +194,9 @@ Material createGridMaterial()
     Material material = context->createMaterial();
     material->setClosestHitProgram( 0, ch_program );
 
-    material["frequency"]->setFloat( 10.0f );
+    const std::string texture_filename = std::string( sutil::samplesDir() ) + "/data/grid.ppm";
+    material["Kd_map"]->setTextureSampler( sutil::loadTexture( context, texture_filename, optix::make_float3( 1.0f ) ) );
+    material["Kd_map_scale"]->setFloat( make_float2( 0.05f, 0.05f) );
 
     return material;
 }

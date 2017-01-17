@@ -26,16 +26,16 @@
 
 using namespace optix;
 
-rtDeclareVariable(rtObject,     top_object, , );
-rtDeclareVariable( float,       frequency, , );
-
-rtDeclareVariable(float3,  shading_normal, attribute shading_normal, ); 
+rtDeclareVariable( float3, shading_normal, attribute shading_normal, ); 
 rtDeclareVariable( float3, geometric_normal, attribute geometric_normal, );
-rtDeclareVariable(float3,  front_hit_point, attribute front_hit_point, );
+rtDeclareVariable( float3, front_hit_point, attribute front_hit_point, );
 rtDeclareVariable( float3, texcoord, attribute texcoord, );
 
 rtDeclareVariable(optix::Ray, ray,   rtCurrentRay, );
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
+
+rtTextureSampler<float4, 2> Kd_map;
+rtDeclareVariable( float2, Kd_map_scale, , );
 
 RT_PROGRAM void closest_hit_radiance()
 {
@@ -56,17 +56,7 @@ RT_PROGRAM void closest_hit_radiance()
     prd_radiance.origin = front_hit_point;
     prd_radiance.direction = w_in;
     
-    const float u = frequency * texcoord.x;
-    const float uu = u - floorf( u );
-    const float v = frequency * texcoord.y;
-    const float vv = v - floorf( v );
-    const float linewidth = 0.04f;
-    const float halflinewidth = 0.5f*linewidth;
-    const float gridval = 1.0f - fmaxf( 
-        smoothstep( 0.5f - linewidth, 0.5f - halflinewidth, uu ) - smoothstep( 0.5f + halflinewidth, 0.5f + linewidth, uu ),
-        smoothstep( 0.5f - linewidth, 0.5f - halflinewidth, vv ) - smoothstep( 0.5f + halflinewidth, 0.5f + linewidth, vv )
-        );
-    const float3 Kd = make_float3( gridval );
+    const float3 Kd = make_float3( tex2D( Kd_map, texcoord.x / Kd_map_scale.x, texcoord.y / Kd_map_scale.y ) );
     prd_radiance.attenuation *= Kd;
 
 }
