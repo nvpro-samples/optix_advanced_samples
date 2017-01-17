@@ -34,7 +34,6 @@
 
 using namespace optix;
 
-rtDeclareVariable(rtObject,     top_object, , );
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
 rtDeclareVariable(float3, front_hit_point, attribute front_hit_point, );
 rtDeclareVariable(float3, back_hit_point, attribute back_hit_point, );

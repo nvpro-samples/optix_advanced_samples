@@ -56,7 +56,7 @@ RT_PROGRAM void closest_hit_radiance()
     const float z2 = rnd( prd_radiance.seed );
     
     float3 w_in;
-    cosine_sample_hemisphere( z1, z2, w_in );
+    optix::cosine_sample_hemisphere( z1, z2, w_in );
     const optix::Onb onb( ffnormal );
     onb.inverse_transform( w_in );
     const float3 fhp = rtTransformPoint( RT_OBJECT_TO_WORLD, front_hit_point );

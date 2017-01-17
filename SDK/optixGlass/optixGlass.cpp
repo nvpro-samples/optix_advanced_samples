@@ -125,6 +125,7 @@ void createContext( bool use_pbo )
 
     // Note: high max depth for reflection and refraction through glass
     context["max_depth"]->setInt( 10 );
+    context["cutoff_color"]->setFloat( 0.2f, 0.2f, 0.2f );
     context["radiance_ray_type"]->setUint( 0 );
     context["frame"]->setUint( 0u );
     context["scene_epsilon"]->setFloat( 1.e-3f );
@@ -171,7 +172,6 @@ Material createGlassMaterial( )
     Material material = context->createMaterial();
     material->setClosestHitProgram( 0, ch_program );
 
-    material["cutoff_color"       ]->setFloat( 0.2f, 0.2f, 0.2f );
     material["fresnel_exponent"   ]->setFloat( 4.0f );
     material["fresnel_minimum"    ]->setFloat( 0.1f );
     material["fresnel_maximum"    ]->setFloat( 1.0f );
