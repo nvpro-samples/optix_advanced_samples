@@ -41,6 +41,7 @@
 #include <sutil/HDRLoader.h>
 #include <sutil/PPMLoader.h>
 #include <sampleConfig.h>
+#include <sutil/stb/stb_image_write.h>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
@@ -404,13 +405,13 @@ void sutil::displayBufferGLFW( const char* window_title, RTbuffer buffer )
 }
 
 
-void sutil::displayBufferPPM( const char* filename, Buffer buffer)
+void sutil::writeBufferToFile( const char* filename, Buffer buffer)
 {
-    displayBufferPPM( filename, buffer->get() );
+    writeBufferToFile( filename, buffer->get() );
 }
 
 
-void sutil::displayBufferPPM( const char* filename, RTbuffer buffer)
+void sutil::writeBufferToFile( const char* filename, RTbuffer buffer)
 {
     GLsizei width, height;
     RTsize buffer_width, buffer_height;
@@ -498,7 +499,21 @@ void sutil::displayBufferPPM( const char* filename, RTbuffer buffer)
             break;
     }
 
-    SavePPM(&pix[0], filename, width, height, 3);
+    std::string suffix;
+    std::string fn( filename );
+    if ( fn.length() > 4 ) {
+        suffix = fn.substr( fn.length() - 4 );
+    }
+
+    if ( suffix == ".ppm" ) {
+        SavePPM(&pix[0], filename, width, height, 3);
+    } else if ( suffix == ".png" ) {
+        if ( !stbi_write_png( filename, (int)width, (int)height, 3, &pix[0], /*row stride in bytes*/ width*3*sizeof(unsigned char)) ) {
+            throw Exception( std::string("Failed to write image: ") + filename );
+        }
+    } else {
+        throw Exception( std::string("Unrecognized output image file extension: ") + filename );
+    }
 
     // Now unmap the buffer
     RT_CHECK_ERROR( rtBufferUnmap(buffer) );

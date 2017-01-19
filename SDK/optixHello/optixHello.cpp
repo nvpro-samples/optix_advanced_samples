@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
         if( strlen( outfile ) == 0 ) {
             sutil::displayBufferGLFW( argv[0], buffer );
         } else {
-            sutil::displayBufferPPM( outfile, buffer );
+            sutil::writeBufferToFile( outfile, buffer );
         }
 
         /* Clean up */

@@ -49,6 +49,8 @@ set(sources
   PPMLoader.cpp
   PPMLoader.h
   ${CMAKE_CURRENT_BINARY_DIR}/../sampleConfig.h
+  stb/stb_image_write.cpp
+  stb/stb_image_write.h
   sutil.cpp
   sutil.h
   sutilapi.h

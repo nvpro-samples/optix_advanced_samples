@@ -300,9 +300,9 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
 
             case( GLFW_KEY_S ):
             {
-                const std::string outputImage = std::string(SAMPLE_NAME) + ".ppm";
+                const std::string outputImage = std::string(SAMPLE_NAME) + ".png";
                 std::cerr << "Saving current frame to '" << outputImage << "'\n";
-                sutil::displayBufferPPM( outputImage.c_str(), getOutputBuffer() );
+                sutil::writeBufferToFile( outputImage.c_str(), getOutputBuffer() );
                 handled = true;
                 break;
             }
@@ -469,7 +469,7 @@ void printUsageAndExit( const std::string& argv0 )
         "  -m | --mesh <mesh_file>  Specify path to mesh to be loaded.\n"
         "App Keystrokes:\n"
         "  q  Quit\n"
-        "  s  Save image to '" << SAMPLE_NAME << ".ppm'\n"
+        "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
         "  f  Re-center camera\n"
         << std::endl;
 
@@ -572,7 +572,7 @@ int main( int argc, char** argv )
                 context["frame"]->setUint( frame );
                 context->launch( 0, WIDTH, HEIGHT );
             }
-            sutil::displayBufferPPM( out_file.c_str(), getOutputBuffer() );
+            sutil::writeBufferToFile( out_file.c_str(), getOutputBuffer() );
             destroyContext();
         }
         return 0;
