@@ -51,6 +51,8 @@ set(sources
   ${CMAKE_CURRENT_BINARY_DIR}/../sampleConfig.h
   stb/stb_image_write.cpp
   stb/stb_image_write.h
+  SunSky.cpp
+  SunSky.h
   sutil.cpp
   sutil.h
   sutilapi.h
