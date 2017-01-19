@@ -45,6 +45,7 @@
 #include <optixu/optixpp.h>
 
 #include <sutil.h>
+#include <Camera.h>
 #include <SunSky.h>
 
 #include "commonStructs.h"
@@ -163,7 +164,7 @@ void createContext( bool use_pbo, Buffer& data_buffer )
     Buffer accum_buffer = context->createBuffer( RT_BUFFER_OUTPUT, RT_FORMAT_FLOAT4, WIDTH, HEIGHT );
     context["accum_buffer"]->set( accum_buffer ); 
     context["pre_image"]->set( accum_buffer ); 
-    context["frame"]->setUint( 1u ); 
+    context["frame"]->setUint( 0u ); 
 
     // Preetham sky model
     ptx_path = ptxPath( "ocean_render.cu" );
@@ -315,6 +316,7 @@ float phillips(float Kx, float Ky, float Vdir, float V, float A)
 // This could be a CUDA kernel.
 void generateH0( float2* h_h0 )
 {
+#if 0
   for (unsigned int y = 0u; y < FFT_HEIGHT; y++) {
     for (unsigned int x = 0u; x < FFT_WIDTH; x++) {
       float kx = M_PIf * x / PATCH_SIZE;
@@ -345,35 +347,285 @@ void generateH0( float2* h_h0 )
       
     }
   }
+#endif
+  std::fill( h_h0, h_h0 + FFT_HEIGHT*FFT_WIDTH, make_float2(0.0f, 0.0f));
+}
+
+//------------------------------------------------------------------------------
+//
+//  GLFW callbacks
+//
+//------------------------------------------------------------------------------
+
+
+struct CallbackData
+{
+    sutil::Camera& camera;
+    unsigned int& accumulation_frame;
+};
+
+void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mods )
+{
+    bool handled = false;
+
+    if( action == GLFW_PRESS )
+    {
+        switch( key )
+        {
+            case GLFW_KEY_Q:
+            case GLFW_KEY_ESCAPE:
+                if( context )
+                    context->destroy();
+                if( window )
+                    glfwDestroyWindow( window );
+                glfwTerminate();
+                exit(EXIT_SUCCESS);
+
+            case( GLFW_KEY_S ):
+            {
+                const std::string outputImage = std::string(SAMPLE_NAME) + ".png";
+                std::cerr << "Saving current frame to '" << outputImage << "'\n";
+                sutil::writeBufferToFile( outputImage.c_str(), getOutputBuffer() );
+                handled = true;
+                break;
+            }
+            case( GLFW_KEY_F ):
+            {
+               CallbackData* cb = static_cast<CallbackData*>( glfwGetWindowUserPointer( window ) );
+               cb->camera.reset_lookat();
+               cb->accumulation_frame = 0;
+               handled = true;
+               break;
+            }
+        }
+    }
+
+    if (!handled) {
+        // forward key event to imgui
+        ImGui_ImplGlfw_KeyCallback( window, key, scancode, action, mods );
+    }
+}
+
+void windowSizeCallback( GLFWwindow* window, int w, int h )
+{
+    if (w < 0 || h < 0) return;
+
+    const unsigned width = (unsigned)w;
+    const unsigned height = (unsigned)h;
+
+    CallbackData* cb = static_cast<CallbackData*>( glfwGetWindowUserPointer( window ) );
+    if ( cb->camera.resize( width, height ) ) {
+        cb->accumulation_frame = 0;
+    }
+
+    sutil::resizeBuffer( getOutputBuffer(), width, height );
+    sutil::resizeBuffer( context[ "accum_buffer" ]->getBuffer(), width, height );
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 1, 0, 1, -1, 1);
+    glViewport(0, 0, width, height);
 }
 
 
+//------------------------------------------------------------------------------
+//
+// GLFW setup and run 
+//
+//------------------------------------------------------------------------------
+
+GLFWwindow* glfwInitialize( )
+{
+    GLFWwindow* window = sutil::initGLFW();
+
+    // Note: this overrides imgui key callback with our own.  We'll chain this.
+    glfwSetKeyCallback( window, keyCallback );
+
+    glfwSetWindowSize( window, (int)WIDTH, (int)HEIGHT );
+    glfwSetWindowSizeCallback( window, windowSizeCallback );
+
+    return window;
+}
+
+
+void glfwRun( GLFWwindow* window, sutil::Camera& camera )
+{
+    // Initialize GL state
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, 1, 0, 1, -1, 1 );
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glViewport(0, 0, WIDTH, HEIGHT );
+
+    unsigned int frame_count = 0;
+    unsigned int accumulation_frame = 0;
+    int max_depth = 10;
+
+    // Expose user data for access in GLFW callback functions when the window is resized, etc.
+    // This avoids having to make it global.
+    CallbackData cb = { camera, accumulation_frame };
+    glfwSetWindowUserPointer( window, &cb );
+
+    while( !glfwWindowShouldClose( window ) )
+    {
+
+        glfwPollEvents();                                                        
+
+        ImGui_ImplGlfw_NewFrame();
+
+        ImGuiIO& io = ImGui::GetIO();
+        
+        // Let imgui process the mouse first
+        if (!io.WantCaptureMouse) {
+
+            double x, y;
+            glfwGetCursorPos( window, &x, &y );
+
+            if ( camera.process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1), ImGui::IsMouseDown(2) ) ) {
+                accumulation_frame = 0;
+            }
+        }
+
+        // imgui pushes
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,   ImVec2(0,0) );
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha,          0.6f        );
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f        );
+
+        sutil::displayFps( frame_count++ );
+
+        // imgui pops
+        ImGui::PopStyleVar( 3 );
+        
+        context["frame"]->setUint( accumulation_frame++ );
+
+        // update normals
+        context->launch( 2, HEIGHTFIELD_WIDTH, HEIGHTFIELD_HEIGHT );
+
+        // Render main window
+        context->launch( 0, camera.width(), camera.height() );
+
+        // tonemap
+        context->launch( 3, camera.width(), camera.height() );
+        sutil::displayBufferGL( getOutputBuffer() );
+
+        // Render gui over it
+        ImGui::Render();
+
+        glfwSwapBuffers( window );
+    }
+    
+    destroyContext();
+    glfwDestroyWindow( window );
+    glfwTerminate();
+}
+
+//------------------------------------------------------------------------------
+//
+// Main
+//
+//------------------------------------------------------------------------------
+
+void printUsageAndExit( const std::string& argv0 )
+{
+    std::cerr << "\nUsage: " << argv0 << " [options]\n";
+    std::cerr <<
+        "App Options:\n"
+        "  -h | --help                  Print this usage message and exit.\n"
+        "  -f | --file <output_file>    Save image to file and exit.\n"
+        "  -n | --nopbo                 Disable GL interop for display buffer.\n"
+        "App Keystrokes:\n"
+        "  q  Quit\n"
+        "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
+        "  f  Re-center camera\n"
+        "\n"
+        << std::endl;
+
+    exit(1);
+}
+
 int main( int argc, char** argv )
 {
+    bool use_pbo  = true;
+    std::string out_file;
+    for( int i=1; i<argc; ++i )
+    {
+        const std::string arg( argv[i] );
 
-    const bool use_pbo = false; //stub
-    Buffer data_buffer = 0;
-    createContext( use_pbo, data_buffer );
-    createGeometry( data_buffer );
-    createLights();
-
-    g_cuda_device = OptiXDeviceToCUDADevice( 0 );
-
-    if ( g_cuda_device < 0 ) {
-      std::cerr << "OptiX device 0 must be a valid CUDA device number.\n";
-      exit(1);
+        if( arg == "-h" || arg == "--help" )
+        {
+            printUsageAndExit( argv[0] );
+        }
+        else if( arg == "-f" || arg == "--file"  )
+        {
+            if( i == argc-1 )
+            {
+                std::cerr << "Option '" << arg << "' requires additional argument.\n";
+                printUsageAndExit( argv[0] );
+            }
+            out_file = argv[++i];
+        }
+        else if( arg == "-n" || arg == "--nopbo"  )
+        {
+            use_pbo = false;
+        }
+        else {
+            std::cerr << "Unknown option '" << arg << "'\n";
+            printUsageAndExit( argv[0] );
+        }
     }
 
-    //
-    // Setup initial heights in OptiX buffer
-    //
+    try
+    {
+        GLFWwindow* window = glfwInitialize();
 
-    Buffer h0_buffer = context["h0"]->getBuffer();
-    float2* height0 = static_cast<float2*>( h0_buffer->map() );
-    generateH0( height0 );
-    h0_buffer->unmap();
+#ifndef __APPLE__
+        GLenum err = glewInit();
+        if (err != GLEW_OK)
+        {
+            std::cerr << "GLEW init failed: " << glewGetErrorString( err ) << std::endl;
+            exit(EXIT_FAILURE);
+        }
+#endif
 
-    // Finalize
-    context->validate();
+        Buffer data_buffer = 0;
+        createContext( use_pbo, data_buffer );
+        createGeometry( data_buffer );
+        createLights();
+
+        g_cuda_device = OptiXDeviceToCUDADevice( 0 );
+
+        if ( g_cuda_device < 0 ) {
+            std::cerr << "OptiX device 0 must be a valid CUDA device number.\n";
+            exit(1);
+        }
+
+        //
+        // Initialize heights in OptiX buffer
+        //
+
+        Buffer h0_buffer = context["h0"]->getBuffer();
+        float2* height0 = static_cast<float2*>( h0_buffer->map() );
+        generateH0( height0 );
+        h0_buffer->unmap();
+
+        sutil::Camera camera( WIDTH, HEIGHT, 
+                make_float3( 1.47502f, 0.284192f, 0.8623f ),  /*eye*/
+                make_float3( 0.0f, 0.0f, 0.0f ), /*lookat*/
+                make_float3( 0.0f, 1.0f,  0.0f ),    //up
+                context["eye"], context["U"], context["V"], context["W"] );
+
+        // Finalize
+        context->validate();
+
+
+        if ( out_file.empty() )
+        {
+            glfwRun( window, camera );
+        }
+
+    }
+    SUTIL_CATCH( context->get() )
+
 }
 
