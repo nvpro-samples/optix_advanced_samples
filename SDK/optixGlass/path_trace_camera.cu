@@ -46,7 +46,6 @@ rtDeclareVariable(int,           max_depth, , );
 rtBuffer<uchar4, 2>              output_buffer;
 rtBuffer<float4, 2>              accum_buffer;
 rtDeclareVariable(rtObject,      top_object, , );
-rtDeclareVariable(unsigned int,  radiance_ray_type, , );
 rtDeclareVariable(unsigned int,  frame, , );
 rtDeclareVariable(uint2,         launch_index, rtLaunchIndex, );
 
@@ -85,7 +84,7 @@ RT_PROGRAM void pinhole_camera()
   float3 result = make_float3( 0.0f, 0.0f, 0.0f );
 
   for(;;) {
-      optix::Ray ray(ray_origin, ray_direction, radiance_ray_type, scene_epsilon );
+      optix::Ray ray(ray_origin, ray_direction, /*ray type*/ 0, scene_epsilon );
       rtTrace(top_object, ray, prd);
 
       result += prd.attenuation * prd.radiance;
