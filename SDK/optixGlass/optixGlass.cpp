@@ -460,17 +460,18 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 
 void printUsageAndExit( const std::string& argv0 )
 {
-    std::cerr << "\nUsage: " << argv0 << " [options]\n";
+    std::cerr << "\nUsage: " << argv0 << " [options] [mesh0 mesh1 ...]\n";
     std::cerr <<
         "App Options:\n"
         "  -h | --help                  Print this usage message and exit.\n"
         "  -f | --file <output_file>    Save image to file and exit.\n"
         "  -n | --nopbo                 Disable GL interop for display buffer.\n"
-        "  -m | --mesh <mesh_file>      Specify path to mesh to be loaded.\n"
         "App Keystrokes:\n"
         "  q  Quit\n"
         "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
         "  f  Re-center camera\n"
+        "\n"
+        "Mesh files are optional and can be OBJ or PLY.\n"
         << std::endl;
 
     exit(1);
@@ -500,24 +501,19 @@ int main( int argc, char** argv )
             }
             out_file = argv[++i];
         }
-        else if ( arg == "-m" || arg == "--mesh" )
-        {
-            if( i == argc-1 )
-            {
-                std::cerr << "Option '" << arg << "' requires additional argument.\n";
-                printUsageAndExit( argv[0] );
-            }
-            mesh_files.push_back( argv[++i] );
-            mesh_xforms.push_back( optix::Matrix4x4::identity() );
-        }
         else if( arg == "-n" || arg == "--nopbo"  )
         {
             use_pbo = false;
         }
-        else
+        else if( arg[0] == '-' )
         {
             std::cerr << "Unknown option '" << arg << "'\n";
             printUsageAndExit( argv[0] );
+        }
+        else {
+            // Interpret argument as a mesh file.
+            mesh_files.push_back( argv[i] );
+            mesh_xforms.push_back( optix::Matrix4x4::identity() );
         }
     }
 
