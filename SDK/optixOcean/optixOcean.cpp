@@ -80,6 +80,7 @@ const float PATCH_SIZE  = 100.0f;
 //
 //------------------------------------------------------------------------------
 
+int g_cuda_device = 0;
 Context      context = 0;
 
 
@@ -291,7 +292,6 @@ void createLights()
     sun_sky.setTurbidity( 2.2f );
     sun_sky.setVariables( context );
 
-
 }
 
 // Phillips spectrum
@@ -357,26 +357,20 @@ int main( int argc, char** argv )
     createGeometry( data_buffer );
     createLights();
 
-    //
-    // Setup cufft state with initial heights in OptiX buffer
-    //
+    g_cuda_device = OptiXDeviceToCUDADevice( 0 );
 
-    const int cuda_device = OptiXDeviceToCUDADevice( 0 );
-
-    if ( cuda_device < 0 ) {
+    if ( g_cuda_device < 0 ) {
       std::cerr << "OptiX device 0 must be a valid CUDA device number.\n";
       exit(1);
     }
 
-    cudaSetDevice( cuda_device );
-
-    const unsigned int fft_input_size  = FFT_WIDTH * FFT_HEIGHT * sizeof(float2);
-
-    float2* height0 = new float2[FFT_WIDTH * FFT_HEIGHT];
-    generateH0( height0 );
+    //
+    // Setup initial heights in OptiX buffer
+    //
 
     Buffer h0_buffer = context["h0"]->getBuffer();
-    memcpy( h0_buffer->map(), height0, fft_input_size ); 
+    float2* height0 = static_cast<float2*>( h0_buffer->map() );
+    generateH0( height0 );
     h0_buffer->unmap();
 
     // Finalize
