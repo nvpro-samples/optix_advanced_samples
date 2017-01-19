@@ -72,9 +72,6 @@ const float3 DEFAULT_EXTINCTION = make_float3( 0.1f, 0.63, 0.3f );
 //------------------------------------------------------------------------------
 
 Context      context = 0;
-GLFWwindow*  g_window = 0; 
-unsigned int g_accumulation_frame = 0;
-sutil::Camera* g_camera = NULL;
 
 
 //------------------------------------------------------------------------------
@@ -278,6 +275,12 @@ optix::Aabb createGeometry(
 //
 //------------------------------------------------------------------------------
 
+struct CallbackData
+{
+    sutil::Camera& camera;
+    unsigned int& accumulation_frame;
+};
+
 void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mods )
 {
     bool handled = false;
@@ -290,8 +293,8 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
             case GLFW_KEY_ESCAPE:
                 if( context )
                     context->destroy();
-                if( g_window )
-                    glfwDestroyWindow( g_window );
+                if( window )
+                    glfwDestroyWindow( window );
                 glfwTerminate();
                 exit(EXIT_SUCCESS);
 
@@ -305,8 +308,9 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
             }
             case( GLFW_KEY_F ):
             {
-               g_camera->reset_lookat();
-               g_accumulation_frame = 0;
+               CallbackData* cb = static_cast<CallbackData*>( glfwGetWindowUserPointer( window ) );
+               cb->camera.reset_lookat();
+               cb->accumulation_frame = 0;
                handled = true;
                break;
             }
@@ -326,8 +330,9 @@ void windowSizeCallback( GLFWwindow* window, int w, int h )
     const unsigned width = (unsigned)w;
     const unsigned height = (unsigned)h;
 
-    if ( g_camera->resize( width, height ) ) {
-        g_accumulation_frame = 0;
+    CallbackData* cb = static_cast<CallbackData*>( glfwGetWindowUserPointer( window ) );
+    if ( cb->camera.resize( width, height ) ) {
+        cb->accumulation_frame = 0;
     }
 
     sutil::resizeBuffer( getOutputBuffer(), width, height );
@@ -346,19 +351,21 @@ void windowSizeCallback( GLFWwindow* window, int w, int h )
 //
 //------------------------------------------------------------------------------
 
-void glfwInitialize( )
+GLFWwindow* glfwInitialize( )
 {
-    g_window = sutil::initGLFW();
+    GLFWwindow* window = sutil::initGLFW();
 
     // Note: this overrides imgui key callback with our own.  We'll chain this.
-    glfwSetKeyCallback( g_window, keyCallback );
+    glfwSetKeyCallback( window, keyCallback );
 
-    glfwSetWindowSize( g_window, (int)WIDTH, (int)HEIGHT );
-    glfwSetWindowSizeCallback( g_window, windowSizeCallback );
+    glfwSetWindowSize( window, (int)WIDTH, (int)HEIGHT );
+    glfwSetWindowSizeCallback( window, windowSizeCallback );
+
+    return window;
 }
 
 
-void glfwRun()
+void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -369,10 +376,16 @@ void glfwRun()
     glViewport(0, 0, WIDTH, HEIGHT );
 
     unsigned int frame_count = 0;
+    unsigned int accumulation_frame = 0;
     float3 glass_extinction = DEFAULT_EXTINCTION;
     int max_depth = 10;
 
-    while( !glfwWindowShouldClose( g_window ) )
+    // Expose user data for access in GLFW callback functions when the window is resized, etc.
+    // This avoids having to make it global.
+    CallbackData cb = { camera, accumulation_frame };
+    glfwSetWindowUserPointer( window, &cb );
+
+    while( !glfwWindowShouldClose( window ) )
     {
 
         glfwPollEvents();                                                        
@@ -385,10 +398,10 @@ void glfwRun()
         if (!io.WantCaptureMouse) {
 
             double x, y;
-            glfwGetCursorPos( g_window, &x, &y );
+            glfwGetCursorPos( window, &x, &y );
 
-            if ( g_camera->process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1), ImGui::IsMouseDown(2) ) ) {
-                g_accumulation_frame = 0;
+            if ( camera.process_mouse( (float)x, (float)y, ImGui::IsMouseDown(0), ImGui::IsMouseDown(1), ImGui::IsMouseDown(2) ) ) {
+                accumulation_frame = 0;
             }
         }
 
@@ -410,11 +423,11 @@ void glfwRun()
             ImGui::Begin("controls", 0, window_flags );
             if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f )) {
                 context["extinction_constant"]->setFloat( log(glass_extinction.x), log(glass_extinction.y), log(glass_extinction.z) );
-                g_accumulation_frame = 0;
+                accumulation_frame = 0;
             }
             if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
                 context["max_depth"]->setInt( max_depth );
-                g_accumulation_frame = 0;
+                accumulation_frame = 0;
             }
             ImGui::End();
         }
@@ -423,18 +436,18 @@ void glfwRun()
         ImGui::PopStyleVar( 3 );
 
         // Render main window
-        context["frame"]->setUint( g_accumulation_frame++ );
-        context->launch( 0, g_camera->width(), g_camera->height() );
+        context["frame"]->setUint( accumulation_frame++ );
+        context->launch( 0, camera.width(), camera.height() );
         sutil::displayBufferGL( getOutputBuffer() );
 
         // Render gui over it
         ImGui::Render();
 
-        glfwSwapBuffers( g_window );
+        glfwSwapBuffers( window );
     }
     
     destroyContext();
-    glfwDestroyWindow( g_window );
+    glfwDestroyWindow( window );
     glfwTerminate();
 }
 
@@ -510,7 +523,7 @@ int main( int argc, char** argv )
 
     try
     {
-        glfwInitialize();
+        GLFWwindow* window = glfwInitialize();
 
 #ifndef __APPLE__
         GLenum err = glewInit();
@@ -542,7 +555,7 @@ int main( int argc, char** argv )
 
         context->validate();
 
-        g_camera = new sutil::Camera( WIDTH, HEIGHT, 
+        sutil::Camera camera( WIDTH, HEIGHT, 
                 optix::make_float3( 0.0f, 1.5f*aabb.extent(1), 1.5f*aabb.extent(2) ),
                 aabb.center(),  // lookat
                 make_float3( 0.0f, 1.0f,  0.0f ),    //up
@@ -550,7 +563,7 @@ int main( int argc, char** argv )
 
         if ( out_file.empty() )
         {
-            glfwRun();
+            glfwRun( window, camera );
         }
         else
         {
@@ -562,7 +575,6 @@ int main( int argc, char** argv )
             sutil::displayBufferPPM( out_file.c_str(), getOutputBuffer() );
             destroyContext();
         }
-        delete g_camera; g_camera = NULL;
         return 0;
     }
     SUTIL_CATCH( context->get() )
