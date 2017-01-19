@@ -463,10 +463,10 @@ void printUsageAndExit( const std::string& argv0 )
     std::cerr << "\nUsage: " << argv0 << " [options]\n";
     std::cerr <<
         "App Options:\n"
-        "  -h | --help              Print this usage message and exit.\n"
-        "  -f | --file              Save single frame to file and exit.\n"
-        "  -n | --nopbo             Disable GL interop for display buffer.\n"
-        "  -m | --mesh <mesh_file>  Specify path to mesh to be loaded.\n"
+        "  -h | --help                  Print this usage message and exit.\n"
+        "  -f | --file <output_file>    Save image to file and exit.\n"
+        "  -n | --nopbo                 Disable GL interop for display buffer.\n"
+        "  -m | --mesh <mesh_file>      Specify path to mesh to be loaded.\n"
         "App Keystrokes:\n"
         "  q  Quit\n"
         "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
@@ -568,11 +568,14 @@ int main( int argc, char** argv )
         else
         {
             // Accumulate frames for anti-aliasing
-            for ( unsigned int frame = 0; frame < 256; ++frame ) {
+            const unsigned int numframes = 256;
+            std::cerr << "Accumulating " << numframes << " frames ..." << std::endl;
+            for ( unsigned int frame = 0; frame < numframes; ++frame ) {
                 context["frame"]->setUint( frame );
                 context->launch( 0, WIDTH, HEIGHT );
             }
             sutil::writeBufferToFile( out_file.c_str(), getOutputBuffer() );
+            std::cerr << "Wrote " << out_file << std::endl;
             destroyContext();
         }
         return 0;
