@@ -48,9 +48,6 @@
 #include <Camera.h>
 #include <SunSky.h>
 
-#include "commonStructs.h"
-#include "random.h"
-
 #include <cufft.h>
 #include <cuda_runtime.h>
 
@@ -81,8 +78,47 @@ const float PATCH_SIZE  = 100.0f;
 //
 //------------------------------------------------------------------------------
 
-int g_cuda_device = 0;
 Context      context = 0;
+
+
+
+//------------------------------------------------------------------------------
+//
+// Helpers for checking cuda and cufft return codes
+//
+//------------------------------------------------------------------------------
+
+#define cutilSafeCall(err) __cudaSafeCall(err, __FILE__, __LINE__)
+
+inline void __cudaSafeCall( cudaError err, const char *file, const int line )
+{
+  if( cudaSuccess != err) {
+    fprintf(stderr, "cudaSafeCall() Runtime error: file <%s>, line %i : %s.\n",
+            file, line, cudaGetErrorString( err) );
+    exit(-1);
+  }
+}
+
+#define cufftSafeCall(err) __cufftSafeCall(err, __FILE__, __LINE__)
+
+inline void __cufftSafeCall( cufftResult err, const char *file, const int line )
+{
+  if( CUFFT_SUCCESS != err) {
+    std::string mssg = err == CUFFT_INVALID_PLAN     ? "invalid plan"    :
+                       err == CUFFT_ALLOC_FAILED     ? "alloc failed"    :
+                       err == CUFFT_INVALID_TYPE     ? "invalid type"    :
+                       err == CUFFT_INVALID_VALUE    ? "invalid value"   :
+                       err == CUFFT_INTERNAL_ERROR   ? "internal error"  :
+                       err == CUFFT_EXEC_FAILED      ? "exec failed"     :
+                       err == CUFFT_SETUP_FAILED     ? "setup failed"    :
+                       err == CUFFT_INVALID_SIZE     ? "invalid size"    :
+                       "bad error code!!!!";
+
+    fprintf(stderr, "cufftSafeCall() CUFFT error '%s' in file <%s>, line %i.\n",
+            mssg.c_str(), file, line);
+    exit(-1);
+  }
+}
 
 
 //------------------------------------------------------------------------------
@@ -91,23 +127,25 @@ Context      context = 0;
 //
 //------------------------------------------------------------------------------
 
-// Obtain the CUDA device ordinal of a given OptiX device
-int OptiXDeviceToCUDADevice( unsigned int optixDeviceIndex )
+
+// Limit work to a single device for simplicity, so we can run all CUDA
+// kernels on a single device when updating the height field.
+int initSingleDevice()
 {
-  std::vector<int> devices = context->getEnabledDevices();
-  unsigned int numOptixDevices = static_cast<unsigned int>( devices.size() );
-  int ordinal;
-  if ( optixDeviceIndex < numOptixDevices )
-  {
-    context->getDeviceAttribute( devices[optixDeviceIndex], RT_DEVICE_ATTRIBUTE_CUDA_DEVICE_ORDINAL, sizeof(ordinal), &ordinal );
-    return ordinal;
-  }
-  return -1;
-}
+    std::vector<int> devices = context->getEnabledDevices();
+    // Limit to single device
+    if ( devices.size() > 1 ) {
+        context->setDevices( devices.begin(), devices.begin()+1 );
+        char name[256];
+        context->getDeviceAttribute( devices[0], RT_DEVICE_ATTRIBUTE_NAME, sizeof( name ), name );
+        std::cerr << "Limiting to device: " << name << std::endl;
+    }
+    int ordinal = -1;
+    context->getDeviceAttribute( devices[0], RT_DEVICE_ATTRIBUTE_CUDA_DEVICE_ORDINAL, sizeof(ordinal), &ordinal );
+   
+    cudaSetDevice( ordinal );
 
-
-static void errorCallback(int error, const char* description)                   {                                                                                
-    std::cerr << "GLFW Error " << error << ": " << description << std::endl;           
+    return devices[0]; // Return OptiX device ordinal, NOT the CUDA device ordinal
 }
 
 
@@ -129,15 +167,24 @@ static Buffer getOutputBuffer()
 
 void destroyContext()
 {
-    if( context )
-    {
+    if( context ) {
         context->destroy();
         context = 0;
     }
 }
 
 
-void createContext( bool use_pbo, Buffer& data_buffer )
+// State for animating buffers
+struct RenderBuffers
+{
+    Buffer ht;       // Frequency domain heights
+    Buffer heights;
+    Buffer normals;
+    int optix_device_ordinal;
+};
+
+
+void createContext( bool use_pbo, RenderBuffers& buffers )
 {
     // Set up context
     context = Context::create();
@@ -147,8 +194,7 @@ void createContext( bool use_pbo, Buffer& data_buffer )
     context->setStackSize(2000);
 
     context["scene_epsilon"       ]->setFloat( 1.e-3f );
-    context["max_depth"           ]->setInt( 6 );
-
+    context["max_depth"           ]->setInt( 1 );
         
     // Exception program
     std::string ptx_path = ptxPath( "accum_camera.cu" );
@@ -178,27 +224,26 @@ void createContext( bool use_pbo, Buffer& data_buffer )
     context["patch_size"]->setFloat( PATCH_SIZE );
     context["t"]->setFloat( 0.0f );
     Buffer h0_buffer = context->createBuffer( RT_BUFFER_INPUT,  RT_FORMAT_FLOAT2, FFT_WIDTH, FFT_HEIGHT );
-    Buffer ht_buffer = context->createBuffer( RT_BUFFER_OUTPUT, RT_FORMAT_FLOAT2, FFT_WIDTH, FFT_HEIGHT ); 
+    buffers.ht = context->createBuffer( RT_BUFFER_OUTPUT, RT_FORMAT_FLOAT2, FFT_WIDTH, FFT_HEIGHT ); 
     Buffer ik_ht_buffer = context->createBuffer( RT_BUFFER_OUTPUT, RT_FORMAT_FLOAT2, FFT_WIDTH, FFT_HEIGHT ); 
     context["h0"]->set( h0_buffer ); 
-    context["ht"]->set( ht_buffer ); 
+    context["ht"]->set( buffers.ht ); 
     context["ik_ht"]->set( ik_ht_buffer ); 
     
     //Ray gen program for normal calculation
     Program normal_program = context->createProgramFromPTXFile( ptx_path, "calculate_normals" );
     context->setRayGenerationProgram( 2, normal_program );
     context["height_scale"]->setFloat( 0.5f );
-    // Could pack data and normals together, but that would preclude using fft_output directly as data_buffer.
-    data_buffer   = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT,
+    // Could pack heights and normals together, but that would preclude using fft_output directly as height_buffer.
+    buffers.heights   = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT,
                                              HEIGHTFIELD_WIDTH,
                                              HEIGHTFIELD_HEIGHT );
-    Buffer normal_buffer = context->createBuffer( RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_FLOAT4,
+    buffers.normals = context->createBuffer( RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_FLOAT4,
                                              HEIGHTFIELD_WIDTH,
                                              HEIGHTFIELD_HEIGHT );
 
-    // TODO: generic name should be more specific
-    context["data"]->set(data_buffer);
-    context["normals"]->set(normal_buffer );
+    context["heights"]->set(buffers.heights);
+    context["normals"]->set(buffers.normals );
 
     // Ray gen program for tonemap
     ptx_path = ptxPath( "tonemap.cu" );
@@ -208,7 +253,7 @@ void createContext( bool use_pbo, Buffer& data_buffer )
     
 }
 
-void createGeometry( Buffer data_buffer )
+void createGeometry()
 {
   Geometry heightfield = context->createGeometry();
   heightfield->setPrimitiveCount( 1u );
@@ -234,25 +279,16 @@ void createGeometry( Buffer data_buffer )
   Material heightfield_matl = context->createMaterial();
   Program water_ch = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
 
-  heightfield_matl["importance_cutoff"  ]->setFloat( 0.01f );
   heightfield_matl["fresnel_exponent"   ]->setFloat( 4.0f );
   heightfield_matl["fresnel_minimum"    ]->setFloat( 0.05f );
   heightfield_matl["fresnel_maximum"    ]->setFloat( 0.30f );
   heightfield_matl["refraction_index"   ]->setFloat( 1.4f );
   heightfield_matl["refraction_color"   ]->setFloat( 0.95f, 0.95f, 0.95f );
   heightfield_matl["reflection_color"   ]->setFloat( 0.7f, 0.7f, 0.7f );
-  heightfield_matl["refraction_maxdepth"]->setInt( 6 );
-  heightfield_matl["reflection_maxdepth"]->setInt( 6 );
   const float3 extinction = make_float3(.75f, .89f, .80f);
   heightfield_matl["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );
-  heightfield_matl["shadow_attenuation"]->setFloat( 1.0f, 1.0f, 1.0f );
   heightfield_matl->setClosestHitProgram( 0, water_ch);
 
-  heightfield_matl["Ka"]->setFloat(0.0f, 0.3f, 0.1f);
-  heightfield_matl["Kd"]->setFloat(0.3f, 0.7f, 0.5f);
-  heightfield_matl["Ks"]->setFloat(0.1f, 0.1f, 0.1f);
-  heightfield_matl["phong_exp"]->setFloat(1600);
-  heightfield_matl["reflectivity"]->setFloat(0.1f, 0.1f, 0.1f);
 
   GeometryInstance gi = context->createGeometryInstance( heightfield, &heightfield_matl, &heightfield_matl+1 );
   
@@ -269,21 +305,6 @@ void createGeometry( Buffer data_buffer )
 
 void createLights()
 {
-    // Set up light buffer
-    context["ambient_light_color"]->setFloat( 1.0f, 1.0f, 1.0f );
-    BasicLight lights[] = { 
-        { { 4.0f, 12.0f, 10.0f }, { 1.0f, 1.0f, 1.0f }, 1 }
-    };
-
-    Buffer light_buffer = context->createBuffer(RT_BUFFER_INPUT);
-    light_buffer->setFormat(RT_FORMAT_USER);
-    light_buffer->setElementSize(sizeof(BasicLight));
-    light_buffer->setSize( sizeof(lights)/sizeof(lights[0]) );
-    memcpy(light_buffer->map(), lights, sizeof(lights));
-    light_buffer->unmap();
-
-    context["lights"]->set(light_buffer);
-
     //
     // Sun and sky model
     //
@@ -312,11 +333,9 @@ float phillips(float Kx, float Ky, float Vdir, float V, float A)
   return A * expf( -1.0f / (k_squared * L * L) ) / (k_squared * k_squared) * w_dot_k * w_dot_k;
 }
 
-// Generate base heightfield in frequency space
-// This could be a CUDA kernel.
+// Generate initial heightfield in frequency space
 void generateH0( float2* h_h0 )
 {
-#if 0
   for (unsigned int y = 0u; y < FFT_HEIGHT; y++) {
     for (unsigned int x = 0u; x < FFT_WIDTH; x++) {
       float kx = M_PIf * x / PATCH_SIZE;
@@ -347,9 +366,33 @@ void generateH0( float2* h_h0 )
       
     }
   }
-#endif
-  std::fill( h_h0, h_h0 + FFT_HEIGHT*FFT_WIDTH, make_float2(0.0f, 0.0f));
 }
+
+
+void updateHeightfield( float anim_time, RenderBuffers buffers )
+{
+
+    static const float ANIM_SCALE = 0.25f;
+    context["t"]->setFloat( static_cast<float>(anim_time) * (-0.5f) * ANIM_SCALE );
+
+    // Generate_spectrum
+    context->launch( 1, FFT_WIDTH, FFT_HEIGHT );
+
+    // Transform results directly into OptiX buffer using CUFFT
+
+    cufftComplex* ht_buffer_device_ptr = static_cast<cufftComplex*>( buffers.ht->getDevicePointer( buffers.optix_device_ordinal ) );
+    cufftReal* height_buffer_device_ptr = static_cast<cufftReal*>( buffers.heights->getDevicePointer( buffers.optix_device_ordinal ) );
+
+    cufftHandle fft_plan;
+    cufftSafeCall( cufftPlan2d( &fft_plan, HEIGHTFIELD_WIDTH, HEIGHTFIELD_HEIGHT, CUFFT_C2R) );
+    cufftSafeCall( cufftExecC2R( fft_plan, ht_buffer_device_ptr, height_buffer_device_ptr ) );
+
+    cufftSafeCall( cufftDestroy( fft_plan ) );
+
+    // Calculate normals for new heights
+    context->launch( 2, HEIGHTFIELD_WIDTH, HEIGHTFIELD_HEIGHT );
+}
+
 
 //------------------------------------------------------------------------------
 //
@@ -448,7 +491,7 @@ GLFWwindow* glfwInitialize( )
 }
 
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -460,7 +503,10 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
-    int max_depth = 10;
+    bool do_animate = true;
+
+    double previous_time = sutil::currentTime();
+    double anim_time = 0.0f;
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -493,19 +539,41 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f        );
 
         sutil::displayFps( frame_count++ );
+        
+        {
+            static const ImGuiWindowFlags window_flags = 
+                    ImGuiWindowFlags_NoTitleBar |
+                    ImGuiWindowFlags_AlwaysAutoResize |
+                    ImGuiWindowFlags_NoMove |
+                    ImGuiWindowFlags_NoScrollbar;
+            ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
+            ImGui::Begin("controls", 0, window_flags );
+
+            if ( ImGui::Checkbox( "animate", &do_animate ) ) {
+                previous_time = sutil::currentTime();
+            }
+
+            ImGui::End();
+        }
 
         // imgui pops
         ImGui::PopStyleVar( 3 );
-        
-        context["frame"]->setUint( accumulation_frame++ );
 
-        // update normals
-        context->launch( 2, HEIGHTFIELD_WIDTH, HEIGHTFIELD_HEIGHT );
+        if ( do_animate ) {
+            // update animation time
+            const double current_time = sutil::currentTime();
+            anim_time += previous_time - current_time;
+            previous_time = current_time;
+
+            updateHeightfield( static_cast<float>( anim_time ), buffers );
+            accumulation_frame = 0;
+        }
 
         // Render main window
+        context["frame"]->setUint( accumulation_frame++ );
         context->launch( 0, camera.width(), camera.height() );
 
-        // tonemap
+        // Tonemap
         context->launch( 3, camera.width(), camera.height() );
         sutil::displayBufferGL( getOutputBuffer() );
 
@@ -588,20 +656,16 @@ int main( int argc, char** argv )
         }
 #endif
 
-        Buffer data_buffer = 0;
-        createContext( use_pbo, data_buffer );
-        createGeometry( data_buffer );
+        RenderBuffers render_buffers;
+        createContext( use_pbo, render_buffers );
+
+        render_buffers.optix_device_ordinal = initSingleDevice();
+
+        createGeometry();
         createLights();
 
-        g_cuda_device = OptiXDeviceToCUDADevice( 0 );
-
-        if ( g_cuda_device < 0 ) {
-            std::cerr << "OptiX device 0 must be a valid CUDA device number.\n";
-            exit(1);
-        }
-
         //
-        // Initialize heights in OptiX buffer
+        // Initialize frequency-domain heights in OptiX buffer
         //
 
         Buffer h0_buffer = context["h0"]->getBuffer();
@@ -618,10 +682,27 @@ int main( int argc, char** argv )
         // Finalize
         context->validate();
 
-
         if ( out_file.empty() )
         {
-            glfwRun( window, camera );
+            glfwRun( window, camera, render_buffers );
+        }
+        else
+        {
+            // Accumulate frames for anti-aliasing
+            updateHeightfield( 0.0f, render_buffers );
+            const unsigned int numframes = 64;
+            std::cerr << "Accumulating " << numframes << " frames ..." << std::endl;
+            for ( unsigned int frame = 0; frame < numframes; ++frame ) {
+                context["frame"]->setUint( frame );
+                context->launch( 0, WIDTH, HEIGHT );
+            }
+
+            // tonemap
+            context->launch( 3, WIDTH, HEIGHT );
+
+            sutil::writeBufferToFile( out_file.c_str(), getOutputBuffer() );
+            std::cerr << "Wrote " << out_file << std::endl;
+            destroyContext();
         }
 
     }

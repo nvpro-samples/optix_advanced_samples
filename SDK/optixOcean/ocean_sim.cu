@@ -1,17 +1,30 @@
-/*
- * Copyright 1993-2009 NVIDIA Corporation.  All rights reserved.
- * * NVIDIA Corporation and its licensors retain all intellectual property and * proprietary rights in and to this software and related documentation. 
- * Any use, reproduction, disclosure, or distribution of this software 
- * and related documentation without an express license agreement from
- * NVIDIA Corporation is strictly prohibited.
+/* 
+ * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
  *
- * Please refer to the applicable NVIDIA end user license agreement (EULA) 
- * associated with this source code for terms and conditions that govern 
- * your use of this NVIDIA software.
- * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-///////////////////////////////////////////////////////////////////////////////
 
 #include <optix.h>
 #include <optix_math.h>
@@ -81,7 +94,7 @@ RT_PROGRAM void generate_spectrum()
  * Normal calculation 
  * 
 \******************************************************************************/
-rtBuffer<float,  2>                    data;
+rtBuffer<float,  2>                    heights;
 rtBuffer<float4, 2>                    normals;
 
 rtDeclareVariable(float, height_scale, , );
@@ -95,8 +108,8 @@ RT_PROGRAM void calculate_normals()
 
     float2 slope;
     if ( (x > 0u) && ( y > 0u ) && ( x < width-1u ) && ( y < height-1u ) ) {
-      slope.x = data[ make_uint2( x+1, y   ) ]- data[ make_uint2( x-1, y   ) ];
-      slope.y = data[ make_uint2( x,   y+1 ) ]- data[ make_uint2( x,   y-1 ) ];
+      slope.x = heights[ make_uint2( x+1, y   ) ]- heights[ make_uint2( x-1, y   ) ];
+      slope.y = heights[ make_uint2( x,   y+1 ) ]- heights[ make_uint2( x,   y-1 ) ];
     } else {
       slope = make_float2(0.0f, 0.0f);
     }

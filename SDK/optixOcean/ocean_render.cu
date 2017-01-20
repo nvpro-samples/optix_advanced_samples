@@ -1,24 +1,30 @@
-
-/*
- * Copyright (c) 2008 - 2009 NVIDIA Corporation.  All rights reserved.
+/* 
+ * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
  *
- * NVIDIA Corporation and its licensors retain all intellectual property and proprietary
- * rights in and to this software, related documentation and any modifications thereto.
- * Any use, reproduction, disclosure or distribution of this software and related
- * documentation without an express license agreement from NVIDIA Corporation is strictly
- * prohibited.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- * TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THIS SOFTWARE IS PROVIDED *AS IS*
- * AND NVIDIA AND ITS SUPPLIERS DISCLAIM ALL WARRANTIES, EITHER EXPRESS OR IMPLIED,
- * INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE.  IN NO EVENT SHALL NVIDIA OR ITS SUPPLIERS BE LIABLE FOR ANY
- * SPECIAL, INCIDENTAL, INDIRECT, OR CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT
- * LIMITATION, DAMAGES FOR LOSS OF BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF
- * BUSINESS INFORMATION, OR ANY OTHER PECUNIARY LOSS) ARISING OUT OF THE USE OF OR
- * INABILITY TO USE THIS SOFTWARE, EVEN IF NVIDIA HAS BEEN ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGES
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 #include <optix.h>
 #include <optix_math.h>
@@ -35,34 +41,13 @@
 \******************************************************************************/
 
 
-struct PerRayData_radiance
-{
-  float3 result;
-  float importance;
-  int depth;
-};
-
 
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
-rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, ); 
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
 
 
-__device__ __inline__ float3 oceanQuerySkyModel( bool CEL, float3 ray_direction )
-{
-  const float d_dot_up = dot( ray_direction, sky_up );
-  if( d_dot_up < 0.0f )
-  {
-    float3 clamped_dir = normalize( cross( ray_direction, sky_up ) );
-    clamped_dir = normalize( cross( sky_up, clamped_dir ) );
-    return querySkyModel( CEL, clamped_dir);
-  }
-  else
-  {
-    return querySkyModel( CEL, ray_direction );
-  }
-}   
+   
 
 /******************************************************************************\
  * 
@@ -76,7 +61,7 @@ rtDeclareVariable(float3,  cellsize, , );
 rtDeclareVariable(float3,  inv_cellsize, , );
 rtDeclareVariable(int2,    ncells, , );
 
-rtBuffer<float,  2>  data;
+rtBuffer<float,  2>  heights;
 rtBuffer<float4, 2>  normals;
 rtDeclareVariable(float3, texcoord, attribute texcoord, ); 
 rtDeclareVariable(float3, back_hit_point, attribute back_hit_point, );
@@ -118,8 +103,8 @@ RT_PROGRAM void intersect(int primIdx)
 
   // Step 3
   uint2 nnodes;
-  nnodes.x = data.size().x;
-  nnodes.y = data.size().y;
+  nnodes.x = heights.size().x;
+  nnodes.y = heights.size().y;
   float3 L = (ray.origin + tnear * ray.direction - boxmin) * inv_cellsize;
   int Lu = min(__float2int_rz(L.x), nnodes.x-2);
   int Lv = min(__float2int_rz(L.z), nnodes.y-2);
@@ -150,10 +135,10 @@ RT_PROGRAM void intersect(int primIdx)
     float yexit = ray.origin.y + texit * ray.direction.y;
 
     // Step 9
-    float d00 = data[make_uint2(Lu,   Lv)  ];
-    float d01 = data[make_uint2(Lu,   Lv+1)];
-    float d10 = data[make_uint2(Lu+1, Lv)  ];
-    float d11 = data[make_uint2(Lu+1, Lv+1)];
+    float d00 = heights[make_uint2(Lu,   Lv)  ];
+    float d01 = heights[make_uint2(Lu,   Lv+1)];
+    float d10 = heights[make_uint2(Lu+1, Lv)  ];
+    float d11 = heights[make_uint2(Lu+1, Lv+1)];
     float datamin = min(min(d00, d01), min(d10, d11));
     float datamax = max(max(d00, d01), max(d10, d11));
     float ymin = min(yenter, yexit);
@@ -227,7 +212,10 @@ RT_PROGRAM void bounds (int, float result[6])
 
 /******************************************************************************\
  * 
- * Ocean water material programs 
+ * Ocean water material programs.
+ * Note: these do not shoot secondary rays, they just apply a local shading model
+ * based on Fresnel reflection and a sky dome.
+ *
  *
 \******************************************************************************/
 
@@ -238,6 +226,30 @@ rtDeclareVariable(float,        fresnel_maximum, , );
 rtDeclareVariable(float,        refraction_index, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
+
+struct PerRayData_radiance
+{
+  float3 result;
+  float importance;
+  int depth;
+};
+
+rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
+
+__device__ __inline__ float3 oceanQuerySkyModel( bool CEL, float3 ray_direction )
+{
+  const float d_dot_up = dot( ray_direction, sky_up );
+  if( d_dot_up < 0.0f )
+  {
+    float3 clamped_dir = normalize( cross( ray_direction, sky_up ) );
+    clamped_dir = normalize( cross( sky_up, clamped_dir ) );
+    return querySkyModel( CEL, clamped_dir);
+  }
+  else
+  {
+    return querySkyModel( CEL, ray_direction );
+  }
+}
 
 
 RT_PROGRAM void closest_hit_radiance()
@@ -273,10 +285,6 @@ RT_PROGRAM void closest_hit_radiance()
   if( dot( i, geometric_normal ) < 0.0f )
   {
     float3 r = reflect(i, shading_normal);
-
-    float importance = prd_radiance.importance *
-                       reflection              *
-                       optix::luminance( reflection_color );
     color = oceanQuerySkyModel( false, r );
   }
 
@@ -298,3 +306,4 @@ RT_PROGRAM void miss()
 {
   prd_radiance.result = oceanQuerySkyModel( prd_radiance.depth == 0 , ray.direction );
 }   
+
