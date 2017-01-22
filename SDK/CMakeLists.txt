@@ -300,6 +300,7 @@ endfunction()
 add_subdirectory(optixHello)
 add_subdirectory(optixGlass)
 add_subdirectory(optixOcean)
+add_subdirectory(optixVox)
 
 
 # Our sutil library.  The rules to build it are found in the subdirectory.
