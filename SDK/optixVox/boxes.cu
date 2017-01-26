@@ -58,6 +58,14 @@ static __device__ float3 boxnormal(float3 boxmin, float3 boxmax, float t)
     return pos-neg;
 }
 
+// Note: might be more efficient to combine with intersection
+static __device__ float3 boxanchor(float3 boxmin, float3 boxmax, float t)
+{
+    float3 t0 = (boxmin - ray.origin) / ray.direction;
+    if ( t == t0.x || t == t0.y || t == t0.z ) return boxmin;
+    return boxmax;
+}
+
 RT_PROGRAM void intersect( int primId )
 {
     // Expand cell in unit box
@@ -80,9 +88,10 @@ RT_PROGRAM void intersect( int primId )
             geometry_color = palette_buffer[ color_index ];
             shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmin );
 
-            // TODO: refine
-            const float3 p = ray.origin + tmin*ray.direction;
-            back_hit_point = front_hit_point = p;
+            const float3 anchor = boxanchor( boxmin, boxmax, tmin );
+            refine_and_offset_hitpoint( ray.origin + tmin*ray.direction, ray.direction,
+                    shading_normal, anchor,
+                    back_hit_point, front_hit_point );
 
             if(rtReportIntersection(0))
                 check_second = false;
@@ -93,9 +102,10 @@ RT_PROGRAM void intersect( int primId )
                 geometry_color = palette_buffer[ color_index ];
                 shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmax );
 
-                // TODO: refine
-                const float3 p = ray.origin + tmax*ray.direction;
-                back_hit_point = front_hit_point = p;
+                const float3 anchor = boxanchor( boxmin, boxmax, tmax );
+                refine_and_offset_hitpoint( ray.origin + tmax*ray.direction, ray.direction,
+                        shading_normal, anchor,
+                        back_hit_point, front_hit_point );
 
                 rtReportIntersection(0);
             }
