@@ -169,8 +169,7 @@ Material createDiffuseMaterial()
 
 
 optix::Aabb createGeometry(
-        const std::vector<std::string>& filenames,  // TODO: multiple files?
-        const std::vector<optix::Matrix4x4>& /*xforms*/,
+        const std::string& filename,
         const Material diffuse_material
         )
 {
@@ -180,111 +179,46 @@ optix::Aabb createGeometry(
     GeometryGroup geometry_group = context->createGeometryGroup();
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
-    // Unit box since we normalize voxel coordinates below
+    // Always a unit box since we normalize voxel coordinates
     const optix::Aabb aabb( make_float3( 0.0f, 0.0f, 0.0f ), make_float3( 1.0f, 1.0f, 1.0f ) );
 
-    // TODO: multiple files?
-    {
-        std::vector< VoxelModel > models;
-        optix::uchar4 palette[256];
-        const std::string& filename = filenames[0];
-        try {
-            read_vox( filename.c_str(), models, palette );
-        } catch ( const std::exception& e ) {
-            std::cerr << "Caught exception while reading voxel model: " << filename << std::endl;
-            std::cerr << e.what() << std::endl;
-            exit(1);
-        }
-
-        // TODO: set palette buffer
-
-        for ( size_t i = 0; i < models.size(); ++i ) {
-            const VoxelModel& model = models[i];
-            const float3 inv_dim = make_float3( 1.0f ) / 
-                make_float3( float(model.dims[0]), float(model.dims[1]), float(model.dims[2]) );
-
-            Geometry box_geometry = context->createGeometry();
-            const unsigned int num_boxes = (unsigned int)( model.voxels.size() );
-            box_geometry->setPrimitiveCount( num_boxes );
-            box_geometry->setBoundingBoxProgram( context->createProgramFromPTXFile( ptx_path, "bounds" ) );
-            box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
-
-            box_geometry["inv_box_dims"]->setFloat( inv_dim );
-
-
-            Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
-            optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());
-            for ( unsigned int k = 0; k < num_boxes; ++k ) {
-                box_data[k] = model.voxels[k];
-            }
-            box_buffer->unmap();
-            box_geometry["box_buffer"]->set( box_buffer );
-
-            GeometryInstance instance = context->createGeometryInstance( box_geometry, &diffuse_material, &diffuse_material + 1 );
-            geometry_group->addChild( instance );
-        }
+    std::vector< VoxelModel > models;
+    optix::uchar4 palette[256];
+    try {
+        read_vox( filename.c_str(), models, palette );
+    } catch ( const std::exception& e ) {
+        std::cerr << "Caught exception while reading voxel model: " << filename << std::endl;
+        std::cerr << e.what() << std::endl;
+        exit(1);
     }
-    
-#if 0
-    GeometryGroup geometry_group = context->createGeometryGroup();
-    optix::Aabb aabb;
-    { 
-        const std::string ptx_path = ptxPath( "boxes.cu" );
 
-        const float3 boxmin0 = make_float3( -1.0f, -1.0f, -1.0f );
-        const float3 boxmax0 = make_float3( 0.0f, 0.0f, 0.0f );
+    // TODO: set palette buffer
 
-        aabb.include( boxmin0, boxmax0 );
+    for ( size_t i = 0; i < models.size(); ++i ) {
+        const VoxelModel& model = models[i];
+        const float3 inv_dim = make_float3( 1.0f ) / 
+            make_float3( float(model.dims[0]), float(model.dims[1]), float(model.dims[2]) );
 
-        const float3 boxmin1 = make_float3( 0.5f, 0.5f, 0.5f );
-        const float3 boxmax1 = make_float3( 1.5f, 1.5f, 1.0f );
-        
-        aabb.include( boxmin1, boxmax1 );
-        
         Geometry box_geometry = context->createGeometry();
-        box_geometry->setPrimitiveCount( 2u );
+        const unsigned int num_boxes = (unsigned int)( model.voxels.size() );
+        box_geometry->setPrimitiveCount( num_boxes );
         box_geometry->setBoundingBoxProgram( context->createProgramFromPTXFile( ptx_path, "bounds" ) );
         box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
 
-        const int num_boxes = 2;
-        Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, num_boxes );
-        box_buffer->setElementSize( sizeof( optix::Aabb ) );
-        optix::Aabb* box_data = static_cast<optix::Aabb*>( box_buffer->map() );
-        box_data[0].set( boxmin0, boxmax0 );
-        box_data[1].set( boxmin1, boxmax1 );
-        box_buffer->unmap();
+        box_geometry["inv_box_dims"]->setFloat( inv_dim );
 
-        box_geometry[ "box_buffer" ]->set( box_buffer );
+
+        Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
+        optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());
+        for ( unsigned int k = 0; k < num_boxes; ++k ) {
+            box_data[k] = model.voxels[k];
+        }
+        box_buffer->unmap();
+        box_geometry["box_buffer"]->set( box_buffer );
 
         GeometryInstance instance = context->createGeometryInstance( box_geometry, &diffuse_material, &diffuse_material + 1 );
         geometry_group->addChild( instance );
     }
-
-    if ( 0 ) {
-        // Ground plane
-        const std::string floor_ptx = ptxPath( "parallelogram_iterative.cu" );
-        Geometry parallelogram = context->createGeometry();
-        parallelogram->setPrimitiveCount( 1u );
-        parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( floor_ptx, "bounds" ) );
-        parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( floor_ptx, "intersect" ) );
-        const float extent = 3.0f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
-        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.01f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
-        float3 v1 = make_float3( 0.0f, 0.0f, extent );
-        float3 v2 = make_float3( extent, 0.0f, 0.0f );
-        const float3 normal = normalize( cross( v1, v2 ) );
-        float d = dot( normal, anchor );
-        v1 *= 1.0f / dot( v1, v1 );
-        v2 *= 1.0f / dot( v2, v2 );
-        float4 plane = make_float4( normal, d );
-        parallelogram["plane"]->setFloat( plane );
-        parallelogram["v1"]->setFloat( v1 );
-        parallelogram["v2"]->setFloat( v2 );
-        parallelogram["anchor"]->setFloat( anchor );
-
-        GeometryInstance instance = context->createGeometryInstance( parallelogram, &diffuse_material, &diffuse_material + 1 );
-        geometry_group->addChild( instance );
-    }
-#endif
 
     context[ "top_object"   ]->set( geometry_group ); 
 
@@ -485,7 +419,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 
 void printUsageAndExit( const std::string& argv0 )
 {
-    std::cerr << "\nUsage: " << argv0 << " [options] [mesh0 mesh1 ...]\n";
+    std::cerr << "\nUsage: " << argv0 << " [options] file.vox\n";
     std::cerr <<
         "App Options:\n"
         "  -h | --help                  Print this usage message and exit.\n"
@@ -496,7 +430,6 @@ void printUsageAndExit( const std::string& argv0 )
         "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
         "  f  Re-center camera\n"
         "\n"
-        "Mesh files are optional and can be OBJ or PLY.\n"
         << std::endl;
 
     exit(1);
@@ -507,8 +440,7 @@ int main( int argc, char** argv )
 {
     bool use_pbo  = true;
     std::string out_file;
-    std::vector<std::string> vox_files;
-    std::vector<optix::Matrix4x4> vox_transforms;
+    std::string vox_file;
     for( int i=1; i<argc; ++i )
     {
         const std::string arg( argv[i] );
@@ -537,8 +469,7 @@ int main( int argc, char** argv )
         }
         else {
             // Interpret argument as a mesh file.
-            vox_files.push_back( argv[i] );
-            vox_transforms.push_back( optix::Matrix4x4::identity() );
+            vox_file = std::string( argv[i] );
         }
     }
 
@@ -557,17 +488,14 @@ int main( int argc, char** argv )
 
         createContext( use_pbo );
 
-        if ( vox_files.empty() ) {
+        if ( vox_file.empty() ) {
 
             // Default scene
-
-            const optix::Matrix4x4 xform = optix::Matrix4x4::identity();
-            vox_files.push_back( std::string( sutil::samplesDir() ) + "/data/monu1.vox" );
-            vox_transforms.push_back( xform );
+            vox_file = std::string( sutil::samplesDir() ) + "/data/monu1.vox";
         }
 
         Material material = createDiffuseMaterial();
-        const optix::Aabb aabb = createGeometry( vox_files, vox_transforms, material );
+        const optix::Aabb aabb = createGeometry( vox_file, material );
 
         // Note: lighting comes from miss program
 
