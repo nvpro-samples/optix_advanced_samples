@@ -100,10 +100,15 @@ void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
         std::swap( voxel.y, voxel.z );
         voxel.z = model.dims[2] - voxel.z;
         model.voxels.push_back( voxel );
-
+        
+        // Note:
+        // Have seen models with voxel index == dim, which should be illegal.  
+        // Allow this anyway; the voxel index is not used to directly access an array.
+#if 0
         ASSERT( voxel.x >= 0 && voxel.x < model.dims[0] ); 
         ASSERT( voxel.y >= 0 && voxel.y < model.dims[1] ); 
         ASSERT( voxel.z >= 0 && voxel.z < model.dims[2] ); 
+#endif
         ASSERT( voxel.w >= 1 );  // Note 1-based indexing for color index
     }
 }
