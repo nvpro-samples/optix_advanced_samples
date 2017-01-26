@@ -3,12 +3,23 @@
 
 #include <optixu/optixu_math_namespace.h>
 
-#include <iostream>
-#include <stdio.h>
-#include <cassert>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <stdexcept>
+#include <string>
 #include <vector>
+
+
+// Runtime assertion that does not get disabled in Release builds
+#define ASSERT( condition )                                                                                         \
+  do                                                                                                                   \
+  {                                                                                                                    \
+    if( !( condition ) )                                                                                               \
+      throw std::runtime_error( std::string( __FILE__ ) + ":" + std::to_string( __LINE__) + ": " + #condition );               \
+  } while( 0 )
+
 
 static const unsigned int default_palette[256] = {
 	0x00000000, 0xffffffff, 0xffccffff, 0xff99ffff, 0xff66ffff, 0xff33ffff, 0xff00ffff, 0xffffccff, 0xffccccff, 0xff99ccff, 0xff66ccff, 0xff33ccff, 0xff00ccff, 0xffff99ff, 0xffcc99ff, 0xff9999ff,
@@ -53,38 +64,27 @@ bool readChunkHeader( FILE* f, ChunkHeader& h )
     if ( fread( &header.num_child_bytes, sizeof(int), 1, f ) != 1 ) return false;
 
     h = header;
+
+    debugChunkHeader( h );
+
     return true;
 }
 
-#if 0
-struct uchar4 {
-    unsigned char x;
-    unsigned char y;
-    unsigned char z;
-    unsigned char w;
-};
-
-struct VoxelModel {
-    int dims[3];
-    std::vector< uchar4 > voxels;
-};
-#endif
 
 // Given a SIZE chunk header, read the SIZE and XYZI data into a voxel model
 void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
 {
-    assert( strcmp( child_header.id, "SIZE" ) == 0 );
+    ASSERT( strcmp( child_header.id, "SIZE" ) == 0 );
     if ( fread( model.dims, sizeof(int), 3, f ) != 3 ) return;
 
     std::cerr << "model dims: " << model.dims[0] << " " << model.dims[1] << " " << model.dims[2] << std::endl;
 
     ChunkHeader voxel_header;
     readChunkHeader( f, voxel_header );
-    debugChunkHeader( voxel_header );
 
     int num_voxels = -1;
     if ( fread( &num_voxels, sizeof(int), 1, f ) != 1 ) return;
-    assert( num_voxels <= model.dims[0] * model.dims[1] * model.dims[2] );
+    ASSERT( num_voxels <= model.dims[0] * model.dims[1] * model.dims[2] );
 
     std::cerr << "num_voxels: " << num_voxels << std::endl;
 
@@ -94,21 +94,10 @@ void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
         if ( fread( &voxel.x, sizeof(char), 4, f ) != 4 ) return;
         model.voxels.push_back( voxel );
 
-        assert( voxel.x >= 0 && voxel.x < model.dims[0] ); 
-        assert( voxel.y >= 0 && voxel.y < model.dims[1] ); 
-        assert( voxel.z >= 0 && voxel.z < model.dims[2] ); 
-        assert( voxel.w >= 1 );  // Note 1-based indexing for color index
-
-#if 0
-        //debug
-        if ( i < 10 ) {
-            std::cerr << "voxel: " << i << ": "
-                      << (int)voxel.x << " "
-                      << (int)voxel.y << " "
-                      << (int)voxel.z << " "
-                      << (int)voxel.w << std::endl;
-        }
-#endif
+        ASSERT( voxel.x >= 0 && voxel.x < model.dims[0] ); 
+        ASSERT( voxel.y >= 0 && voxel.y < model.dims[1] ); 
+        ASSERT( voxel.z >= 0 && voxel.z < model.dims[2] ); 
+        ASSERT( voxel.w >= 1 );  // Note 1-based indexing for color index
     }
 }
 
@@ -120,35 +109,30 @@ void debugPalette( const optix::uchar4* pal )
 }
 
 
-bool readVox( const char* filename, std::vector< VoxelModel >& models, optix::uchar4 palette[256] )
+void read_vox( const char* filename, std::vector< VoxelModel >& models, optix::uchar4 palette[256] )
 {
     FILE* f = fopen( filename, "r" );
     if ( !f ) {
         std::cerr << "Could not open file: " << filename << std::endl;
-        return false;
+        ASSERT( f );
     }
     char magic[5];
     magic[4] = '\0';
-    if ( fread( magic, sizeof(char), 4, f ) != 4 ) return false;
-    if (strcmp( magic, "VOX " ) != 0 ) {
-        std::cerr << "Not a VOX file: " << filename << std::endl;
-        std::cerr << "id: " << magic << std::endl;
-        return false;
-    }
+    ASSERT ( fread( magic, sizeof(char), 4, f ) == 4 );
+    ASSERT( (strcmp( magic, "VOX " ) == 0) && "File is a VOX file" );
+    
     int version = 0;
-    if ( fread( &version, sizeof(int), 1, f ) != 1 ) return false;
+    ASSERT ( fread( &version, sizeof(int), 1, f ) == 1 );
 
     ChunkHeader main_header;
     readChunkHeader( f, main_header );
-    debugChunkHeader( main_header );
 
     ChunkHeader child_header;
     readChunkHeader( f, child_header );
-    debugChunkHeader( child_header );
 
     int num_models = 1;
     if ( strcmp( child_header.id, "PACK" ) == 0 ) {
-        if ( fread( &num_models, sizeof(int), 1, f ) != 1 ) return false;
+        ASSERT ( fread( &num_models, sizeof(int), 1, f ) == 1 );
         std::cerr << "found pack, num_models = " << num_models << std::endl;
 
         // Read first SIZE block to match single-model case
@@ -176,12 +160,11 @@ bool readVox( const char* filename, std::vector< VoxelModel >& models, optix::uc
     // Read optional palette
     bool found_palette = false;
     if ( readChunkHeader( f, child_header ) ) {
-        debugChunkHeader( child_header );
         if ( strcmp( child_header.id, "RGBA" ) == 0 ) {
-            if ( fread( palette, sizeof(optix::uchar4), 256, f ) != 256 ) return false;
+            ASSERT ( fread( palette, sizeof(optix::uchar4), 256, f ) == 256 );
             found_palette = true;
         } else {
-            std::cerr << "********************* Ignoring chunk " << std::endl;
+            std::cerr << "********************* Ignoring chunk: " << child_header.id << std::endl;
         }
     }
     
@@ -193,20 +176,18 @@ bool readVox( const char* filename, std::vector< VoxelModel >& models, optix::uc
     //debugPalette( palette );
 
     if ( readChunkHeader( f, child_header ) ) {
-        debugChunkHeader( child_header );
-        std::cerr << "********************* Ignoring chunk " << std::endl;
+        std::cerr << "********************* Ignoring chunk " << child_header.id << std::endl;
     }
     
 
     fclose( f );
-    return true;
 }
 
 #if 0
 int main( int argc, char ** argv )
 {
     
-    assert( argc > 1 );
+    ASSERT( argc > 1 );
     readVox( argv[1] );
     
     return 0;

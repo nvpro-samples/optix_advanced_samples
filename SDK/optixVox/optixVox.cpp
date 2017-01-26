@@ -188,8 +188,12 @@ optix::Aabb createGeometry(
         std::vector< VoxelModel > models;
         optix::uchar4 palette[256];
         const std::string& filename = filenames[0];
-        if ( !readVox( filename.c_str(), models, palette ) ) {
-            throw std::runtime_error( "Could not read file '" + filename + "'" );
+        try {
+            read_vox( filename.c_str(), models, palette );
+        } catch ( const std::exception& e ) {
+            std::cerr << "Caught exception while reading voxel model: " << filename << std::endl;
+            std::cerr << e.what() << std::endl;
+            exit(1);
         }
 
         // TODO: set palette buffer

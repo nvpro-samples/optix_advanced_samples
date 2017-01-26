@@ -9,6 +9,6 @@ struct VoxelModel {
     std::vector< optix::uchar4 > voxels;
 };
 
-bool readVox( const char* filename, std::vector< VoxelModel >& models, optix::uchar4 palette[256] );
+void read_vox( const char* filename, std::vector< VoxelModel >& models, optix::uchar4 palette[256] );
 
 
