@@ -112,7 +112,7 @@ void createContext( bool use_pbo )
 {
     // Set up context
     context = Context::create();
-    context->setRayTypeCount( 1 );
+    context->setRayTypeCount( 2 );
     context->setEntryPointCount( 1 );
     context->setStackSize( 1024 );
 
@@ -150,11 +150,25 @@ void createLights()
     const std::string ptx_path = ptxPath( "sunsky.cu" );
     context->setMissProgram( 0, context->createProgramFromPTXFile( ptx_path, "miss" ) );
 
-    sutil::PreethamSunSky sun_sky;
-    sun_sky.setSunTheta( 1.2f );
-    sun_sky.setSunPhi( 0.0f );
-    sun_sky.setTurbidity( 2.2f );
-    sun_sky.setVariables( context );
+    sutil::PreethamSunSky sky;
+    sky.setSunTheta( 0.5f );
+    sky.setSunPhi( 0.0f );
+    sky.setTurbidity( 2.2f );
+    sky.setVariables( context );
+
+    // Split out sun for direct sampling
+    static const float DEFAULT_SUN_SCALE = 0.00001f;
+    BasicLight light;
+    light.pos = sky.getSunDir() * 100.0f;  // distant point light, assuming geometry in unit cube.
+    light.color = sky.sunColor() * DEFAULT_SUN_SCALE;
+    light.casts_shadow = 1;
+    
+    Buffer buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, 1 );
+    buffer->setElementSize( sizeof( BasicLight ) );
+    memcpy( buffer->map(), &light, sizeof( BasicLight ) );
+    buffer->unmap();
+
+    context["light_buffer"]->set( buffer );
 }
 
 
@@ -162,9 +176,11 @@ Material createDiffuseMaterial()
 {
     const std::string ptx_path = ptxPath( "diffuse.cu" );
     Program ch_program = context->createProgramFromPTXFile( ptx_path, "closest_hit_radiance" );
+    Program ah_program = context->createProgramFromPTXFile( ptx_path, "any_hit_shadow" );
 
     Material material = context->createMaterial();
     material->setClosestHitProgram( 0, ch_program );
+    material->setAnyHitProgram( 1, ah_program );
 
     material["Kd"]->setFloat( make_float3( 0.7f, 0.7f, 0.7f ) );
 

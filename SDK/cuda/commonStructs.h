@@ -37,8 +37,7 @@ struct BasicLight
 #endif
   float3 pos;
   float3 color;
-  int    casts_shadow; 
-  int    padding;      // make this structure 32 bytes -- powers of two are your friend!
+  int casts_shadow;
 };
 
 

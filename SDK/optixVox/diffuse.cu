@@ -31,6 +31,7 @@
 #include "helpers.h"
 #include "prd.h"
 #include "random.h"
+#include "commonStructs.h"
 
 using namespace optix;
 
@@ -41,8 +42,18 @@ rtDeclareVariable( uchar4, geometry_color, attribute geometry_color, );
 
 rtDeclareVariable(optix::Ray, ray,   rtCurrentRay, );
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
+rtDeclareVariable(PerRayData_shadow,   prd_shadow, rtPayload, );
 
 rtDeclareVariable( float3, Kd, , );
+rtDeclareVariable(rtObject,      top_object, , );
+
+rtBuffer<BasicLight> light_buffer;
+
+RT_PROGRAM void any_hit_shadow()
+{
+    prd_shadow.attenuation = make_float3( 0.0f );
+    rtTerminateRay();
+}
 
 RT_PROGRAM void closest_hit_radiance()
 {
@@ -65,6 +76,22 @@ RT_PROGRAM void closest_hit_radiance()
     
     float3 geom_color = make_float3( geometry_color.x / 255.0f, geometry_color.y / 255.0f, geometry_color.z / 255.0f );
     prd_radiance.attenuation *= Kd * geom_color;
+
+    // Add direct light radiance modulated by shadow ray
+    const BasicLight& light = light_buffer[0];
+    float3 L = light.pos - fhp;
+    const float Ldist = length( L );
+    L /= Ldist;
+
+    const float NdotL = dot( ffnormal, L);
+    if(NdotL > 0.0f) {
+        PerRayData_shadow shadow_prd;
+        shadow_prd.attenuation = make_float3( 1.0f );
+        optix::Ray shadow_ray = optix::make_Ray( front_hit_point, L, /*shadow ray type*/ 1, 0.0f, Ldist );
+        rtTrace(top_object, shadow_ray, shadow_prd);
+        prd_radiance.radiance += NdotL * light.color * shadow_prd.attenuation;
+    }
+    
 
 }
 
