@@ -192,7 +192,17 @@ optix::Aabb createGeometry(
         exit(1);
     }
 
-    // TODO: set palette buffer
+    // Set palette buffer on global context, since it is the same for all models
+    {
+        Buffer palette_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, 256 );
+        optix::uchar4* data = static_cast<optix::uchar4*>( palette_buffer->map() );
+        for (int i = 0; i < 256; ++i) {
+            data[i] = palette[i];    
+        }
+        palette_buffer->unmap();
+        context["palette_buffer"]->set( palette_buffer );
+    }
+    
 
     for ( size_t i = 0; i < models.size(); ++i ) {
         const VoxelModel& model = models[i];
@@ -206,7 +216,6 @@ optix::Aabb createGeometry(
         box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
 
         box_geometry["inv_box_dims"]->setFloat( inv_dim );
-
 
         Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
         optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());

@@ -40,13 +40,15 @@ using namespace optix;
 rtDeclareVariable( float3, inv_box_dims, , );
 rtBuffer< optix::uchar4 > box_buffer;
 
+rtBuffer< optix::uchar4 > palette_buffer;
+
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 
 rtDeclareVariable( float3, back_hit_point, attribute back_hit_point, );
 rtDeclareVariable(float3, front_hit_point, attribute front_hit_point, );
-rtDeclareVariable(float3, texcoord, attribute texcoord, ); 
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, ); 
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
+rtDeclareVariable(uchar4, geometry_color, attribute geometry_color, ); 
 
 static __device__ float3 boxnormal(float3 boxmin, float3 boxmax, float t)
 {
@@ -74,7 +76,8 @@ RT_PROGRAM void intersect( int primId )
     if(tmin <= tmax) {
         bool check_second = true;
         if( rtPotentialIntersection( tmin ) ) {
-            texcoord = make_float3( 0.0f );
+            int color_index = (int)box_buffer[primId].w;
+            geometry_color = palette_buffer[ color_index ];
             shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmin );
 
             // TODO: refine
@@ -86,7 +89,8 @@ RT_PROGRAM void intersect( int primId )
         } 
         if(check_second) {
             if( rtPotentialIntersection( tmax ) ) {
-                texcoord = make_float3( 0.0f );
+                int color_index = (int)box_buffer[primId].w;
+                geometry_color = palette_buffer[ color_index ];
                 shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmax );
 
                 // TODO: refine
