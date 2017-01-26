@@ -38,7 +38,7 @@ OPTIX_add_sample_executable( optixVox
     boxes.cu
     path_trace_camera.cu
     diffuse.cu
-    gradientbg.cu
+    sunsky.cu
     prd.h
     ${SAMPLES_CUDA_DIR}/parallelogram_iterative.cu
     ${SAMPLES_CUDA_DIR}/commonStructs.h

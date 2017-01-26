@@ -109,8 +109,20 @@ RT_PROGRAM void pinhole_camera()
   } else {
     acc_val = make_float4( result, 0.f );
   }
-  output_buffer[launch_index] = make_color( make_float3( acc_val ) );
   accum_buffer[launch_index] = acc_val;
+  //output_buffer[launch_index] = make_color( make_float3( acc_val ) );
+
+  // tonemap
+  float3 val_Yxy = rgb2Yxy( make_float3( acc_val ) );
+  
+  float Y        = val_Yxy.x; // Y channel is luminance
+  float mapped_Y = Y / ( Y + 1.0f );
+  
+  float3 mapped_Yxy = make_float3( mapped_Y, val_Yxy.y, val_Yxy.z ); 
+  float3 mapped_rgb = Yxy2rgb( mapped_Yxy ); 
+
+  output_buffer[ launch_index ] = make_color( mapped_rgb );
+
 }
 
 RT_PROGRAM void exception()

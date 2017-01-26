@@ -49,6 +49,7 @@
 #include "commonStructs.h"
 #include "read_vox.h"
 #include <Camera.h>
+#include <SunSky.h>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
@@ -137,20 +138,23 @@ void createContext( bool use_pbo )
     Program exception_program = context->createProgramFromPTXFile( ptx_path, "exception" );
     context->setExceptionProgram( 0, exception_program );
     context["bad_color"]->setFloat( 1.0f, 0.0f, 1.0f );
+    
+}
 
-    // Miss program
-    ptx_path = ptxPath( "gradientbg.cu" );
+void createLights()
+{
+    //
+    // Sun and sky model
+    //
+    
+    const std::string ptx_path = ptxPath( "sunsky.cu" );
     context->setMissProgram( 0, context->createProgramFromPTXFile( ptx_path, "miss" ) );
-    context["background_light"]->setFloat( 1.0f, 1.0f, 1.0f );
-    context["background_dark"]->setFloat( 0.3f, 0.3f, 0.3f );
 
-    // align background's up direction with camera's look direction
-    float3 bg_up = normalize( make_float3(0.0f, -1.0f, -1.0f) );
-
-    // tilt the background's up direction in the direction of the camera's up direction
-    bg_up.y += 1.0f;
-    bg_up = normalize(bg_up);
-    context["up"]->setFloat( bg_up.x, bg_up.y, bg_up.z );
+    sutil::PreethamSunSky sun_sky;
+    sun_sky.setSunTheta( 1.2f );
+    sun_sky.setSunPhi( 0.0f );
+    sun_sky.setTurbidity( 2.2f );
+    sun_sky.setVariables( context );
 }
 
 
@@ -513,6 +517,8 @@ int main( int argc, char** argv )
             // Default scene
             vox_file = std::string( sutil::samplesDir() ) + "/data/monu1.vox";
         }
+
+        createLights();
 
         Material material = createDiffuseMaterial();
         const optix::Aabb aabb = createGeometry( vox_file, material );
