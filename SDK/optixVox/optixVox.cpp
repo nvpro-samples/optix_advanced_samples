@@ -179,8 +179,7 @@ optix::Aabb createGeometry(
     GeometryGroup geometry_group = context->createGeometryGroup();
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
-    // Always a unit box since we normalize voxel coordinates
-    const optix::Aabb aabb( make_float3( 0.0f, 0.0f, 0.0f ), make_float3( 1.0f, 1.0f, 1.0f ) );
+    optix::Aabb aabb;
 
     std::vector< VoxelModel > models;
     optix::uchar4 palette[256];
@@ -206,16 +205,12 @@ optix::Aabb createGeometry(
 
     for ( size_t i = 0; i < models.size(); ++i ) {
         const VoxelModel& model = models[i];
-        const float3 inv_dim = make_float3( 1.0f ) / 
-            make_float3( float(model.dims[0]), float(model.dims[1]), float(model.dims[2]) );
 
         Geometry box_geometry = context->createGeometry();
         const unsigned int num_boxes = (unsigned int)( model.voxels.size() );
         box_geometry->setPrimitiveCount( num_boxes );
         box_geometry->setBoundingBoxProgram( context->createProgramFromPTXFile( ptx_path, "bounds" ) );
         box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
-
-        box_geometry["inv_box_dims"]->setFloat( inv_dim );
 
         Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
         optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());
@@ -224,6 +219,22 @@ optix::Aabb createGeometry(
         }
         box_buffer->unmap();
         box_geometry["box_buffer"]->set( box_buffer );
+
+        // Compute tight bounds
+        optix::uchar4 boxmin = make_uchar4( 255, 255, 255, 255 );
+        optix::uchar4 boxmax = make_uchar4( 0, 0, 0, 0 );
+        for ( unsigned int k = 0; k < num_boxes; ++k ) {
+            boxmin.x = std::min(boxmin.x, model.voxels[k].x);
+            boxmin.y = std::min(boxmin.y, model.voxels[k].y);
+            boxmin.z = std::min(boxmin.z, model.voxels[k].z);
+            boxmax.x = std::max(boxmax.x, model.voxels[k].x);
+            boxmax.y = std::max(boxmax.y, model.voxels[k].y);
+            boxmax.z = std::max(boxmax.z, model.voxels[k].z);
+        }
+        aabb.include( 
+            make_float3( boxmin.x, boxmin.y, boxmin.z ) / make_float3( 255.0f, 255.0f, 255.0f ),
+            make_float3( boxmax.x, boxmax.y, boxmax.z ) / make_float3( 255.0f, 255.0f, 255.0f )
+            );
 
         GeometryInstance instance = context->createGeometryInstance( box_geometry, &diffuse_material, &diffuse_material + 1 );
         geometry_group->addChild( instance );

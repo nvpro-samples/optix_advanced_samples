@@ -37,7 +37,6 @@
 using namespace optix;
 
 // Compressed 8-bit indices as in VOX format.  We expand these into floating point coords during intersection.
-rtDeclareVariable( float3, inv_box_dims, , );
 rtBuffer< optix::uchar4 > box_buffer;
 
 rtBuffer< optix::uchar4 > palette_buffer;
@@ -63,7 +62,8 @@ RT_PROGRAM void intersect( int primId )
 {
     // Expand cell in unit box
     const uchar4 b = box_buffer[primId];
-    const float3 boxmin = inv_box_dims * make_float3( b.x, b.y, b.z );
+    const float3 inv_box_dims = make_float3( 1.0f ) / make_float3( 255.0f );
+    const float3 boxmin = make_float3( b.x, b.y, b.z ) * inv_box_dims;
     const float3 boxmax = boxmin + inv_box_dims;
 
     float3 t0 = (boxmin - ray.origin)/ray.direction;
@@ -106,8 +106,10 @@ RT_PROGRAM void intersect( int primId )
 RT_PROGRAM void bounds (int primId, float result[6])
 {
     const uchar4 b = box_buffer[primId];
-    const float3 boxmin = inv_box_dims * make_float3( b.x, b.y, b.z );
+    const float3 inv_box_dims = make_float3( 1.0f ) / make_float3( 255.0f );
+    const float3 boxmin = make_float3( b.x, b.y, b.z ) * inv_box_dims;
     const float3 boxmax = boxmin + inv_box_dims;
+
     optix::Aabb* aabb = (optix::Aabb*)result;
     aabb->set( boxmin, boxmax );
 }
