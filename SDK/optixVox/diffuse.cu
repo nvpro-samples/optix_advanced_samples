@@ -38,7 +38,7 @@ using namespace optix;
 rtDeclareVariable( float3, shading_normal, attribute shading_normal, ); 
 rtDeclareVariable( float3, geometric_normal, attribute geometric_normal, );
 rtDeclareVariable( float3, front_hit_point, attribute front_hit_point, );
-rtDeclareVariable( uchar4, geometry_color, attribute geometry_color, );
+rtDeclareVariable( float4, geometry_color, attribute geometry_color, );
 
 rtDeclareVariable(optix::Ray, ray,   rtCurrentRay, );
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
@@ -74,8 +74,7 @@ RT_PROGRAM void closest_hit_radiance()
     prd_radiance.origin = front_hit_point;
     prd_radiance.direction = w_in;
     
-    float3 geom_color = make_float3( geometry_color.x / 255.0f, geometry_color.y / 255.0f, geometry_color.z / 255.0f );
-    prd_radiance.attenuation *= Kd * geom_color;
+    prd_radiance.attenuation *= Kd * make_float3( geometry_color );
 
     // Add direct light radiance modulated by shadow ray
     const BasicLight& light = light_buffer[0];

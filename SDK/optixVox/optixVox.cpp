@@ -260,6 +260,31 @@ optix::Aabb createGeometry(
         geometry_group->addChild( instance );
     }
 
+    {
+        // Ground plane
+        const std::string ground_ptx = ptxPath( "parallelogram_iterative.cu" );
+        Geometry parallelogram = context->createGeometry();
+        parallelogram->setPrimitiveCount( 1u );
+        parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( ground_ptx, "bounds" ) );
+        parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( ground_ptx, "intersect" ) );
+        const float extent = 2.0f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
+        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.01f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
+        float3 v1 = make_float3( 0.0f, 0.0f, extent );
+        float3 v2 = make_float3( extent, 0.0f, 0.0f );
+        const float3 normal = normalize( cross( v1, v2 ) );
+        float d = dot( normal, anchor );
+        v1 *= 1.0f / dot( v1, v1 );
+        v2 *= 1.0f / dot( v2, v2 );
+        float4 plane = make_float4( normal, d );
+        parallelogram["plane"]->setFloat( plane );
+        parallelogram["v1"]->setFloat( v1 );
+        parallelogram["v2"]->setFloat( v2 );
+        parallelogram["anchor"]->setFloat( anchor );
+
+        GeometryInstance instance = context->createGeometryInstance( parallelogram, &diffuse_material, &diffuse_material + 1 );
+        geometry_group->addChild( instance );
+    }
+
     context[ "top_object"   ]->set( geometry_group ); 
 
     return aabb;

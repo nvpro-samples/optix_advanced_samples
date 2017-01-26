@@ -44,10 +44,10 @@ rtBuffer< optix::uchar4 > palette_buffer;
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 
 rtDeclareVariable( float3, back_hit_point, attribute back_hit_point, );
-rtDeclareVariable(float3, front_hit_point, attribute front_hit_point, );
-rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, ); 
-rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
-rtDeclareVariable(uchar4, geometry_color, attribute geometry_color, ); 
+rtDeclareVariable( float3, front_hit_point, attribute front_hit_point, );
+rtDeclareVariable( float3, geometric_normal, attribute geometric_normal, ); 
+rtDeclareVariable( float3, shading_normal, attribute shading_normal, ); 
+rtDeclareVariable( float4, geometry_color, attribute geometry_color, ); 
 
 static __device__ float3 boxnormal(float3 boxmin, float3 boxmax, float t)
 {
@@ -64,6 +64,11 @@ static __device__ float3 boxanchor(float3 boxmin, float3 boxmax, float t)
     float3 t0 = (boxmin - ray.origin) / ray.direction;
     if ( t == t0.x || t == t0.y || t == t0.z ) return boxmin;
     return boxmax;
+}
+
+static __device__ __inline__ float4 make_float4( uchar4 c )
+{
+    return make_float4( c.x, c.y, c.z, c.w );
 }
 
 RT_PROGRAM void intersect( int primId )
@@ -85,7 +90,7 @@ RT_PROGRAM void intersect( int primId )
         bool check_second = true;
         if( rtPotentialIntersection( tmin ) ) {
             int color_index = (int)box_buffer[primId].w;
-            geometry_color = palette_buffer[ color_index ];
+            geometry_color = make_float4( palette_buffer[ color_index ] ) / make_float4( 255.0f );
             shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmin );
 
             const float3 anchor = boxanchor( boxmin, boxmax, tmin );
@@ -99,7 +104,7 @@ RT_PROGRAM void intersect( int primId )
         if(check_second) {
             if( rtPotentialIntersection( tmax ) ) {
                 int color_index = (int)box_buffer[primId].w;
-                geometry_color = palette_buffer[ color_index ];
+                geometry_color = make_float4( palette_buffer[ color_index ] ) / make_float4( 255.0f );
                 shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmax );
 
                 const float3 anchor = boxanchor( boxmin, boxmax, tmax );
