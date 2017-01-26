@@ -95,11 +95,9 @@ if(NOT DEFINED OPTIX_USE_AGGRESSIVE_WARNINGS)
   set(OPTIX_USE_AGGRESSIVE_WARNINGS OFF)
 endif()
 
-# Goldenrod requires C++11.
+# Enable c++11
 if (USING_GNU_CXX OR USING_CLANG_CXX)
-  if(GCC_LIBSTDCPP11)
-    APPEND_TO_STRING( CXX_FLAGS "-std=c++11" )
-  endif()
+  APPEND_TO_STRING( CXX_FLAGS "-std=c++11" )
 endif()
 
 #############################################################
