@@ -209,18 +209,14 @@ optix::Aabb createGeometry(
             box_geometry->setBoundingBoxProgram( context->createProgramFromPTXFile( ptx_path, "bounds" ) );
             box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
 
-            Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, num_boxes );
-            box_buffer->setElementSize( sizeof( optix::Aabb ) );
-            optix::Aabb* box_data = static_cast<optix::Aabb*>( box_buffer->map() );
+            box_geometry["inv_box_dims"]->setFloat( inv_dim );
 
+
+            Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
+            optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());
             for ( unsigned int k = 0; k < num_boxes; ++k ) {
-                float3 boxmin = make_float3 ( float( model.voxels[k].x ) * inv_dim.x, 
-                                              float( model.voxels[k].y ) * inv_dim.y,
-                                              float( model.voxels[k].z ) * inv_dim.z );
-                float3 boxmax = boxmin + inv_dim;
-                box_data[k].set( boxmin, boxmax );
+                box_data[k] = model.voxels[k];
             }
-
             box_buffer->unmap();
             box_geometry["box_buffer"]->set( box_buffer );
 
