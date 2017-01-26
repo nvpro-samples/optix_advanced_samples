@@ -77,6 +77,9 @@ void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
     ASSERT( strcmp( child_header.id, "SIZE" ) == 0 );
     if ( fread( model.dims, sizeof(int), 3, f ) != 3 ) return;
 
+    // Switch from z-up to y-up to match other OptiX samples
+    std::swap( model.dims[1], model.dims[2] );
+
     std::cerr << "model dims: " << model.dims[0] << " " << model.dims[1] << " " << model.dims[2] << std::endl;
 
     ChunkHeader voxel_header;
@@ -92,6 +95,10 @@ void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
     for (int i = 0; i < num_voxels; ++i) {
         optix::uchar4 voxel;
         if ( fread( &voxel.x, sizeof(char), 4, f ) != 4 ) return;
+
+        // Switch from z-up to y-up to match other OptiX samples
+        std::swap( voxel.y, voxel.z );
+        voxel.z = model.dims[2] - voxel.z;
         model.voxels.push_back( voxel );
 
         ASSERT( voxel.x >= 0 && voxel.x < model.dims[0] ); 
