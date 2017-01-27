@@ -187,9 +187,13 @@ Material createDiffuseMaterial()
     return material;
 }
 
+inline int idivCeil( int x, int y )                                              
+{                                                                                
+    return (x + y-1)/y;                                                            
+}
 
 optix::Aabb createGeometry(
-        const std::string& filename,
+        const std::vector<std::string>& filenames,
         const Material diffuse_material
         )
 {
@@ -199,65 +203,87 @@ optix::Aabb createGeometry(
     GeometryGroup geometry_group = context->createGeometryGroup();
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
-    optix::Aabb aabb;
+    optix::Aabb aabb;  // for entire scene
 
-    std::vector< VoxelModel > models;
-    optix::uchar4 palette[256];
-    try {
-        read_vox( filename.c_str(), models, palette );
-    } catch ( const std::exception& e ) {
-        std::cerr << "Caught exception while reading voxel model: " << filename << std::endl;
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
+    // If there are multiple files, arrange them in a grid
+    const int num_rows = (int)sqrtf( (float)filenames.size() );
+    const int num_cols = idivCeil( (int)filenames.size(), num_rows );
+    int col = 0;
+    float3 anchor = make_float3( 0.0f );
+    optix::Aabb row_aabb;
 
-    // Set palette buffer on global context, since it is the same for all models
-    {
-        Buffer palette_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, 256 );
-        optix::uchar4* data = static_cast<optix::uchar4*>( palette_buffer->map() );
-        for (int i = 0; i < 256; ++i) {
-            data[i] = palette[i];    
+    for (size_t fileindex = 0; fileindex < filenames.size(); ++fileindex ) {
+        const std::string& filename = filenames[fileindex];
+        std::vector< VoxelModel > models;
+        optix::uchar4 palette[256];
+        try {
+            read_vox( filename.c_str(), models, palette );
+        } catch ( const std::exception& e ) {
+            std::cerr << "Caught exception while reading voxel model: " << filename << std::endl;
+            std::cerr << e.what() << std::endl;
+            exit(1);
         }
-        palette_buffer->unmap();
-        context["palette_buffer"]->set( palette_buffer );
-    }
-    
 
-    for ( size_t i = 0; i < models.size(); ++i ) {
-        const VoxelModel& model = models[i];
-
-        Geometry box_geometry = context->createGeometry();
-        const unsigned int num_boxes = (unsigned int)( model.voxels.size() );
-        box_geometry->setPrimitiveCount( num_boxes );
-        box_geometry->setBoundingBoxProgram( context->createProgramFromPTXFile( ptx_path, "bounds" ) );
-        box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
-
-        Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
-        optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());
-        for ( unsigned int k = 0; k < num_boxes; ++k ) {
-            box_data[k] = model.voxels[k];
+        // Set palette buffer on global context, since it is the same for all models
+        {
+            Buffer palette_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, 256 );
+            optix::uchar4* data = static_cast<optix::uchar4*>( palette_buffer->map() );
+            for (int i = 0; i < 256; ++i) {
+                data[i] = palette[i];    
+            }
+            palette_buffer->unmap();
+            context["palette_buffer"]->set( palette_buffer );
         }
-        box_buffer->unmap();
-        box_geometry["box_buffer"]->set( box_buffer );
+        
+        Aabb geometry_aabb;
+        for ( size_t i = 0; i < models.size(); ++i ) {
+            const VoxelModel& model = models[i];
 
-        // Compute tight bounds
-        optix::uchar4 boxmin = make_uchar4( 255, 255, 255, 255 );
-        optix::uchar4 boxmax = make_uchar4( 0, 0, 0, 0 );
-        for ( unsigned int k = 0; k < num_boxes; ++k ) {
-            boxmin.x = std::min(boxmin.x, model.voxels[k].x);
-            boxmin.y = std::min(boxmin.y, model.voxels[k].y);
-            boxmin.z = std::min(boxmin.z, model.voxels[k].z);
-            boxmax.x = std::max(boxmax.x, model.voxels[k].x);
-            boxmax.y = std::max(boxmax.y, model.voxels[k].y);
-            boxmax.z = std::max(boxmax.z, model.voxels[k].z);
+            Geometry box_geometry = context->createGeometry();
+            const unsigned int num_boxes = (unsigned int)( model.voxels.size() );
+            box_geometry->setPrimitiveCount( num_boxes );
+            box_geometry->setBoundingBoxProgram( context->createProgramFromPTXFile( ptx_path, "bounds" ) );
+            box_geometry->setIntersectionProgram( context->createProgramFromPTXFile( ptx_path, "intersect" ) );
+
+            Buffer box_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_BYTE4, num_boxes );
+            optix::uchar4* box_data = static_cast<optix::uchar4*>( box_buffer->map());
+            for ( unsigned int k = 0; k < num_boxes; ++k ) {
+                box_data[k] = model.voxels[k];
+            }
+            box_buffer->unmap();
+            box_geometry["box_buffer"]->set( box_buffer );
+            
+            box_geometry["anchor"]->setFloat( anchor );
+
+            // Compute tight bounds
+            optix::uchar4 boxmin = make_uchar4( 255, 255, 255, 255 );
+            optix::uchar4 boxmax = make_uchar4( 0, 0, 0, 0 );
+            for ( unsigned int k = 0; k < num_boxes; ++k ) {
+                boxmin.x = std::min(boxmin.x, model.voxels[k].x);
+                boxmin.y = std::min(boxmin.y, model.voxels[k].y);
+                boxmin.z = std::min(boxmin.z, model.voxels[k].z);
+                boxmax.x = std::max(boxmax.x, model.voxels[k].x);
+                boxmax.y = std::max(boxmax.y, model.voxels[k].y);
+                boxmax.z = std::max(boxmax.z, model.voxels[k].z);
+            }
+            geometry_aabb.include( 
+                anchor + make_float3( boxmin.x, boxmin.y, boxmin.z ) / make_float3( 255.0f, 255.0f, 255.0f ),
+                anchor + make_float3( boxmax.x, boxmax.y, boxmax.z ) / make_float3( 255.0f, 255.0f, 255.0f )
+                );
+
+            GeometryInstance instance = context->createGeometryInstance( box_geometry, &diffuse_material, &diffuse_material + 1 );
+            geometry_group->addChild( instance );
         }
-        aabb.include( 
-            make_float3( boxmin.x, boxmin.y, boxmin.z ) / make_float3( 255.0f, 255.0f, 255.0f ),
-            make_float3( boxmax.x, boxmax.y, boxmax.z ) / make_float3( 255.0f, 255.0f, 255.0f )
-            );
 
-        GeometryInstance instance = context->createGeometryInstance( box_geometry, &diffuse_material, &diffuse_material + 1 );
-        geometry_group->addChild( instance );
+        row_aabb.include( geometry_aabb );
+        aabb.include( geometry_aabb );
+        anchor.x += 1.1f*geometry_aabb.extent(0);
+        if ( col++ > num_cols ) {
+            col = 0;
+            anchor.x = 0.0f;
+            anchor.z -= 1.1f*row_aabb.extent(2);
+            row_aabb.invalidate();
+        }
     }
 
     {
@@ -493,7 +519,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
 
 void printUsageAndExit( const std::string& argv0 )
 {
-    std::cerr << "\nUsage: " << argv0 << " [options] file.vox\n";
+    std::cerr << "\nUsage: " << argv0 << " [options] [file0.vox] [file1.vox] ...\n";
     std::cerr <<
         "App Options:\n"
         "  -h | --help                  Print this usage message and exit.\n"
@@ -514,7 +540,7 @@ int main( int argc, char** argv )
 {
     bool use_pbo  = true;
     std::string out_file;
-    std::string vox_file;
+    std::vector<std::string> vox_files;
     for( int i=1; i<argc; ++i )
     {
         const std::string arg( argv[i] );
@@ -543,7 +569,7 @@ int main( int argc, char** argv )
         }
         else {
             // Interpret argument as a mesh file.
-            vox_file = std::string( argv[i] );
+            vox_files.push_back( std::string( argv[i] ) );
         }
     }
 
@@ -562,10 +588,10 @@ int main( int argc, char** argv )
 
         createContext( use_pbo );
 
-        if ( vox_file.empty() ) {
+        if ( vox_files.empty() ) {
 
             // Default scene
-            vox_file = std::string( sutil::samplesDir() ) + "/data/monu1.vox";
+            vox_files.push_back( std::string( sutil::samplesDir() ) + "/data/monu1.vox" );
         }
 
         sutil::PreethamSunSky sky;
@@ -574,7 +600,7 @@ int main( int argc, char** argv )
         createLights( sky, sun, light_buffer );
 
         Material material = createDiffuseMaterial();
-        const optix::Aabb aabb = createGeometry( vox_file, material );
+        const optix::Aabb aabb = createGeometry( vox_files, material );
 
         // Note: lighting comes from miss program
 
