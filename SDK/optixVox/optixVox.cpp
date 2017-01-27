@@ -65,6 +65,9 @@ using namespace optix;
 const char* const SAMPLE_NAME = "optixVox";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
+const float SUN_SCALE = 0.000001f;
+const float SUN_DISTANCE = 100.0f;
+const float SKY_SCALE = 0.1f;
 
 //------------------------------------------------------------------------------
 //
@@ -73,7 +76,6 @@ const unsigned int HEIGHT = 576u;
 //------------------------------------------------------------------------------
 
 Context      context = 0;
-
 
 //------------------------------------------------------------------------------
 //
@@ -141,7 +143,7 @@ void createContext( bool use_pbo )
     
 }
 
-void createLights()
+void createLights( sutil::PreethamSunSky& sky, BasicLight& sun, Buffer& light_buffer )
 {
     //
     // Sun and sky model
@@ -150,25 +152,23 @@ void createLights()
     const std::string ptx_path = ptxPath( "sunsky.cu" );
     context->setMissProgram( 0, context->createProgramFromPTXFile( ptx_path, "miss" ) );
 
-    sutil::PreethamSunSky sky;
-    sky.setSunTheta( 0.5f );
-    sky.setSunPhi( 0.0f );
+    sky.setSunTheta( 1.1f );  // 0: noon, pi/2: sunset
+    sky.setSunPhi( 0.5f );
     sky.setTurbidity( 2.2f );
     sky.setVariables( context );
 
     // Split out sun for direct sampling
-    static const float DEFAULT_SUN_SCALE = 0.00001f;
-    BasicLight light;
-    light.pos = sky.getSunDir() * 100.0f;  // distant point light, assuming geometry in unit cube.
-    light.color = sky.sunColor() * DEFAULT_SUN_SCALE;
-    light.casts_shadow = 1;
+    sun.pos = sky.getSunDir() * SUN_DISTANCE;
+    sun.color = sky.sunColor() * SUN_SCALE;
+    sun.casts_shadow = 1;
     
-    Buffer buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, 1 );
-    buffer->setElementSize( sizeof( BasicLight ) );
-    memcpy( buffer->map(), &light, sizeof( BasicLight ) );
-    buffer->unmap();
+    light_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, 1 );
+    light_buffer->setElementSize( sizeof( BasicLight ) );
+    memcpy( light_buffer->map(), &sun, sizeof( BasicLight ) );
+    light_buffer->unmap();
 
-    context["light_buffer"]->set( buffer );
+    context["light_buffer"]->set( light_buffer );
+    context["sky_scale"]->setFloat( SKY_SCALE );
 }
 
 
@@ -268,7 +268,7 @@ optix::Aabb createGeometry(
         parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( ground_ptx, "bounds" ) );
         parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( ground_ptx, "intersect" ) );
         const float extent = 2.0f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
-        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.01f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
+        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.001f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
         float3 v1 = make_float3( 0.0f, 0.0f, extent );
         float3 v2 = make_float3( extent, 0.0f, 0.0f );
         const float3 normal = normalize( cross( v1, v2 ) );
@@ -388,7 +388,7 @@ GLFWwindow* glfwInitialize( )
 }
 
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& sky, BasicLight& sun, Buffer light_buffer )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -400,7 +400,8 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
-    int max_depth = 10;
+    float sun_phi = sky.getSunPhi();
+    float sun_theta = sky.getSunTheta();
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -434,7 +435,6 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 
         sutil::displayFps( frame_count++ );
 
-#if 0
         {
             static const ImGuiWindowFlags window_flags = 
                     ImGuiWindowFlags_NoTitleBar |
@@ -444,17 +444,26 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
-            if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f )) {
-                context["extinction_constant"]->setFloat( log(glass_extinction.x), log(glass_extinction.y), log(glass_extinction.z) );
+
+            if (ImGui::SliderAngle( "sun phi", &sun_phi, 0.0f, 360.0f ) ) {
+                sky.setSunPhi( sun_phi );
+                sky.setVariables( context );
+                sun.pos = sky.getSunDir() * SUN_DISTANCE;
+                memcpy( light_buffer->map(), &sun, sizeof( BasicLight ) );
+                light_buffer->unmap();
                 accumulation_frame = 0;
             }
-            if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
-                context["max_depth"]->setInt( max_depth );
+            if (ImGui::SliderAngle( "sun theta", &sun_theta, 0.0f, 90.0f ) ) {
+                sky.setSunTheta( sun_theta );
+                sky.setVariables( context );
+                sun.pos = sky.getSunDir() * SUN_DISTANCE;
+                memcpy( light_buffer->map(), &sun, sizeof( BasicLight ) );
+                light_buffer->unmap();
                 accumulation_frame = 0;
             }
+
             ImGui::End();
         }
-#endif
 
         // imgui pops
         ImGui::PopStyleVar( 3 );
@@ -559,7 +568,10 @@ int main( int argc, char** argv )
             vox_file = std::string( sutil::samplesDir() ) + "/data/monu1.vox";
         }
 
-        createLights();
+        sutil::PreethamSunSky sky;
+        BasicLight sun;
+        Buffer light_buffer;
+        createLights( sky, sun, light_buffer );
 
         Material material = createDiffuseMaterial();
         const optix::Aabb aabb = createGeometry( vox_file, material );
@@ -576,7 +588,7 @@ int main( int argc, char** argv )
 
         if ( out_file.empty() )
         {
-            glfwRun( window, camera );
+            glfwRun( window, camera, sky, sun, light_buffer );
         }
         else
         {
