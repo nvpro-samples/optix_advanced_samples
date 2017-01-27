@@ -602,7 +602,7 @@ int main( int argc, char** argv )
         if ( vox_files.empty() ) {
 
             // Default scene
-            vox_files.push_back( std::string( sutil::samplesDir() ) + "/data/monu1.vox" );
+            vox_files.push_back( std::string( sutil::samplesDir() ) + "/data/scene_parade.vox" );
         }
 
         sutil::PreethamSunSky sky;
