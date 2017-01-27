@@ -78,7 +78,7 @@ RT_PROGRAM void closest_hit_radiance()
 
     // Add direct light radiance modulated by shadow ray
     const DirectionalLight& light = light_buffer[0];
-    const float3 light_center = light.direction;
+    const float3 light_center = fhp + light.direction;
     const float r1 = rnd( prd_radiance.seed );
     const float r2 = rnd( prd_radiance.seed );
     const float3 jittered_pos = light_center + light.radius*(2.0f*r1 - 1.0f)*light.v0 + light.radius*(2.0f*r2 - 1.0f)*light.v1;
