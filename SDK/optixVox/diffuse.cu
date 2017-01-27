@@ -55,6 +55,9 @@ RT_PROGRAM void any_hit_shadow()
     rtTerminateRay();
 }
 
+// Note: both the hemisphere and direct light sampling below use pure random numbers to avoid any patent issues.
+// Stratified sampling or QMC would improve convergence.  Please keep this in mind when judging noise levels.
+
 RT_PROGRAM void closest_hit_radiance()
 {
 
@@ -77,6 +80,7 @@ RT_PROGRAM void closest_hit_radiance()
     prd_radiance.attenuation *= Kd * make_float3( geometry_color );
 
     // Add direct light radiance modulated by shadow ray
+
     const DirectionalLight& light = light_buffer[0];
     const float3 light_center = fhp + light.direction;
     const float r1 = rnd( prd_radiance.seed );

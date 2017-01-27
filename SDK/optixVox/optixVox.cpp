@@ -28,7 +28,9 @@
 
 //-----------------------------------------------------------------------------
 //
-// optixGlass: a glass shader example
+// optixVox: a sample that renders a subset of the MagicaVoxel VOX file format.
+// This was inspired by MagicaVoxel @ ephtracy.
+// Demonstrates non-triangle geometry, and naive random path tracing.
 //
 //-----------------------------------------------------------------------------
 
