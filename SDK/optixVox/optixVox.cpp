@@ -66,7 +66,7 @@ const char* const SAMPLE_NAME = "optixVox";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
 const float SUN_SCALE = 0.000001f;
-const float SUN_DISTANCE = 100.0f;
+const float SUN_RADIUS = 0.05f;  // defined at unit distance from shading point
 const float SKY_SCALE = 0.1f;
 
 //------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ void createContext( bool use_pbo )
     
 }
 
-void createLights( sutil::PreethamSunSky& sky, BasicLight& sun, Buffer& light_buffer )
+void createLights( sutil::PreethamSunSky& sky, DirectionalLight& sun, Buffer& light_buffer )
 {
     //
     // Sun and sky model
@@ -158,13 +158,17 @@ void createLights( sutil::PreethamSunSky& sky, BasicLight& sun, Buffer& light_bu
     sky.setVariables( context );
 
     // Split out sun for direct sampling
-    sun.pos = sky.getSunDir() * SUN_DISTANCE;
+    sun.direction = sky.getSunDir();
+    optix::Onb onb( sun.direction );
+    sun.radius = SUN_RADIUS; // at unit distance along direction
+    sun.v0 = onb.m_tangent;
+    sun.v1 = onb.m_binormal; 
     sun.color = sky.sunColor() * SUN_SCALE;
     sun.casts_shadow = 1;
     
     light_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, 1 );
-    light_buffer->setElementSize( sizeof( BasicLight ) );
-    memcpy( light_buffer->map(), &sun, sizeof( BasicLight ) );
+    light_buffer->setElementSize( sizeof( DirectionalLight ) );
+    memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
     light_buffer->unmap();
 
     context["light_buffer"]->set( light_buffer );
@@ -414,7 +418,7 @@ GLFWwindow* glfwInitialize( )
 }
 
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& sky, BasicLight& sun, Buffer light_buffer )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& sky, DirectionalLight& sun, Buffer light_buffer )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -428,6 +432,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
     unsigned int accumulation_frame = 0;
     float sun_phi = sky.getSunPhi();
     float sun_theta = sky.getSunTheta();
+    float sun_radius = SUN_RADIUS;
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -471,19 +476,25 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
 
-            if (ImGui::SliderAngle( "sun phi", &sun_phi, 0.0f, 360.0f ) ) {
+            if (ImGui::SliderAngle( "sun rotation", &sun_phi, 0.0f, 360.0f ) ) {
                 sky.setSunPhi( sun_phi );
                 sky.setVariables( context );
-                sun.pos = sky.getSunDir() * SUN_DISTANCE;
-                memcpy( light_buffer->map(), &sun, sizeof( BasicLight ) );
+                sun.direction = sky.getSunDir();
+                memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
                 accumulation_frame = 0;
             }
-            if (ImGui::SliderAngle( "sun theta", &sun_theta, 0.0f, 90.0f ) ) {
+            if (ImGui::SliderAngle( "sun lowness", &sun_theta, 0.0f, 90.0f ) ) {
                 sky.setSunTheta( sun_theta );
                 sky.setVariables( context );
-                sun.pos = sky.getSunDir() * SUN_DISTANCE;
-                memcpy( light_buffer->map(), &sun, sizeof( BasicLight ) );
+                sun.direction = sky.getSunDir();
+                memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
+                light_buffer->unmap();
+                accumulation_frame = 0;
+            }
+            if (ImGui::SliderFloat( "sun radius", &sun_radius, 0.0f, 0.4f ) ) {
+                sun.radius = sun_radius;
+                memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
                 accumulation_frame = 0;
             }
@@ -595,7 +606,7 @@ int main( int argc, char** argv )
         }
 
         sutil::PreethamSunSky sky;
-        BasicLight sun;
+        DirectionalLight sun;
         Buffer light_buffer;
         createLights( sky, sun, light_buffer );
 
@@ -619,7 +630,7 @@ int main( int argc, char** argv )
         else
         {
             // Accumulate frames for anti-aliasing
-            const unsigned int numframes = 256;
+            const unsigned int numframes = 800;
             std::cerr << "Accumulating " << numframes << " frames ..." << std::endl;
             for ( unsigned int frame = 0; frame < numframes; ++frame ) {
                 context["frame"]->setUint( frame );

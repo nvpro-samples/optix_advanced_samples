@@ -47,7 +47,7 @@ rtDeclareVariable(PerRayData_shadow,   prd_shadow, rtPayload, );
 rtDeclareVariable( float3, Kd, , );
 rtDeclareVariable(rtObject,      top_object, , );
 
-rtBuffer<BasicLight> light_buffer;
+rtBuffer<DirectionalLight> light_buffer;
 
 RT_PROGRAM void any_hit_shadow()
 {
@@ -77,16 +77,18 @@ RT_PROGRAM void closest_hit_radiance()
     prd_radiance.attenuation *= Kd * make_float3( geometry_color );
 
     // Add direct light radiance modulated by shadow ray
-    const BasicLight& light = light_buffer[0];
-    float3 L = light.pos - fhp;
-    const float Ldist = length( L );
-    L /= Ldist;
+    const DirectionalLight& light = light_buffer[0];
+    const float3 light_center = light.direction;
+    const float r1 = rnd( prd_radiance.seed );
+    const float r2 = rnd( prd_radiance.seed );
+    const float3 jittered_pos = light_center + light.radius*(2.0f*r1 - 1.0f)*light.v0 + light.radius*(2.0f*r2 - 1.0f)*light.v1;
+    const float3 L = normalize( jittered_pos - fhp );
 
     const float NdotL = dot( ffnormal, L);
     if(NdotL > 0.0f) {
         PerRayData_shadow shadow_prd;
         shadow_prd.attenuation = make_float3( 1.0f );
-        optix::Ray shadow_ray = optix::make_Ray( front_hit_point, L, /*shadow ray type*/ 1, 0.0f, Ldist );
+        optix::Ray shadow_ray ( fhp, L, /*shadow ray type*/ 1, 0.0f );
         rtTrace(top_object, shadow_ray, shadow_prd);
         prd_radiance.radiance += NdotL * light.color * shadow_prd.attenuation;
     }
