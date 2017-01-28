@@ -1,3 +1,34 @@
+/* 
+ * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+// A reader for the VOX file format specified in MagicaVoxel-file-format-vox.txt.
+//
+// Currently ignores material (MATT) chunks.
 
 #include "read_vox.h"
 
@@ -14,11 +45,23 @@
 
 // Runtime assertion that does not get disabled in Release builds
 #define ASSERT( condition )                                                                                         \
-  do                                                                                                                   \
-  {                                                                                                                    \
-    if( !( condition ) )                                                                                               \
-      throw std::runtime_error( std::string( __FILE__ ) + ":" + std::to_string( __LINE__) + ": " + #condition );               \
+  do                                                                                                                \
+  {                                                                                                                 \
+    if( !( condition ) )                                                                                            \
+      throw std::runtime_error( std::string( __FILE__ ) + ":" + std::to_string( __LINE__) + ": " + #condition );    \
   } while( 0 )
+
+
+#define DO_DEBUG_PRINT 0
+#if DO_DEBUG_PRINT
+#define DEBUG_PRINT( x )  \
+  do                      \
+  {                       \
+    std::cerr << x;       \
+  } while( 0 )
+#else
+#define DEBUG_PRINT( x )
+#endif
 
 
 static const unsigned int default_palette[256] = {
@@ -65,7 +108,9 @@ bool readChunkHeader( FILE* f, ChunkHeader& h )
 
     h = header;
 
+#if DO_DEBUG_PRINT
     debugChunkHeader( h );
+#endif
 
     return true;
 }
@@ -80,7 +125,7 @@ void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
     // Switch from z-up to y-up to match other OptiX samples
     std::swap( model.dims[1], model.dims[2] );
 
-    std::cerr << "model dims: " << model.dims[0] << " " << model.dims[1] << " " << model.dims[2] << std::endl;
+    DEBUG_PRINT( "model dims: " << model.dims[0] << " " << model.dims[1] << " " << model.dims[2] << std::endl );
 
     ChunkHeader voxel_header;
     readChunkHeader( f, voxel_header );
@@ -89,7 +134,7 @@ void readVoxelModel( FILE* f, ChunkHeader child_header, VoxelModel& model )
     if ( fread( &num_voxels, sizeof(int), 1, f ) != 1 ) return;
     ASSERT( num_voxels <= model.dims[0] * model.dims[1] * model.dims[2] );
 
-    std::cerr << "num_voxels: " << num_voxels << std::endl;
+    DEBUG_PRINT( "num_voxels: " << num_voxels << std::endl );
 
     model.voxels.reserve( num_voxels );
     for (int i = 0; i < num_voxels; ++i) {
@@ -145,7 +190,7 @@ void read_vox( const char* filename, std::vector< VoxelModel >& models, optix::u
     int num_models = 1;
     if ( strcmp( child_header.id, "PACK" ) == 0 ) {
         ASSERT ( fread( &num_models, sizeof(int), 1, f ) == 1 );
-        std::cerr << "found pack, num_models = " << num_models << std::endl;
+        DEBUG_PRINT( "found pack, num_models = " << num_models << std::endl );
 
         // Read first SIZE block to match single-model case
         readChunkHeader( f, child_header );
@@ -176,6 +221,7 @@ void read_vox( const char* filename, std::vector< VoxelModel >& models, optix::u
             ASSERT ( fread( palette, sizeof(optix::uchar4), 256, f ) == 256 );
             found_palette = true;
         } else {
+            std::cerr << "********************* " << filename << std::endl;
             std::cerr << "********************* Ignoring chunk: " << child_header.id << std::endl;
         }
     }
@@ -188,6 +234,7 @@ void read_vox( const char* filename, std::vector< VoxelModel >& models, optix::u
     //debugPalette( palette );
 
     if ( readChunkHeader( f, child_header ) ) {
+        std::cerr << "********************* " << filename << std::endl;
         std::cerr << "********************* Ignoring chunk " << child_header.id << std::endl;
     }
     
