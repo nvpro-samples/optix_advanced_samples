@@ -334,6 +334,35 @@ void sutil::resizeBuffer( optix::Buffer buffer, unsigned width, unsigned height 
 }
 
 
+optix::GeometryInstance sutil::createOptiXGroundPlane( optix::Context context,
+                                               const std::string& parallelogram_ptx, 
+                                               const optix::Aabb& aabb,
+                                               optix::Material material,
+                                               float scale )
+{
+    optix::Geometry parallelogram = context->createGeometry();
+    parallelogram->setPrimitiveCount( 1u );
+    parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( parallelogram_ptx, "bounds" ) );
+    parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( parallelogram_ptx, "intersect" ) );
+    const float extent = scale*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
+    const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.001f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
+    float3 v1 = make_float3( 0.0f, 0.0f, extent );
+    float3 v2 = make_float3( extent, 0.0f, 0.0f );
+    const float3 normal = normalize( cross( v1, v2 ) );
+    float d = dot( normal, anchor );
+    v1 *= 1.0f / dot( v1, v1 );
+    v2 *= 1.0f / dot( v2, v2 );
+    float4 plane = make_float4( normal, d );
+    parallelogram["plane"]->setFloat( plane );
+    parallelogram["v1"]->setFloat( v1 );
+    parallelogram["v2"]->setFloat( v2 );
+    parallelogram["anchor"]->setFloat( anchor );
+
+    optix::GeometryInstance instance = context->createGeometryInstance( parallelogram, &material, &material + 1 );
+    return instance;
+}
+
+
 GLFWwindow* sutil::initGLFW()
 {
     // Initialize GLFW
