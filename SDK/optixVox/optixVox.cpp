@@ -490,6 +490,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 sky.setSunTheta( sun_theta );
                 sky.setVariables( context );
                 sun.direction = sky.getSunDir();
+                sun.color = sky.sunColor() * SUN_SCALE;
                 memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
                 accumulation_frame = 0;
