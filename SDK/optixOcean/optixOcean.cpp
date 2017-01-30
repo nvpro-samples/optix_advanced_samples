@@ -47,6 +47,7 @@
 #include <sutil.h>
 #include <Camera.h>
 #include <SunSky.h>
+#include <random.h>
 
 #include <cufft.h>
 #include <cuda_runtime.h>
@@ -336,14 +337,14 @@ float phillips(float Kx, float Ky, float Vdir, float V, float A)
 // Generate initial heightfield in frequency space
 void generateH0( float2* h_h0 )
 {
+  unsigned int seed = 0xDEADBEEF;
   for (unsigned int y = 0u; y < FFT_HEIGHT; y++) {
     for (unsigned int x = 0u; x < FFT_WIDTH; x++) {
       float kx = M_PIf * x / PATCH_SIZE;
       float ky = 2.0f * M_PIf * y / PATCH_SIZE;
 
-      // note - these random numbers should be from a Gaussian distribution really
-      float Er = 2.0f * rand() / static_cast<float>( RAND_MAX ) - 1.0f;
-      float Ei = 2.0f * rand() / static_cast<float>( RAND_MAX ) - 1.0f;
+      float Er = 2.0f * rnd( seed ) - 1.0f;
+      float Ei = 2.0f * rnd( seed ) - 1.0f;
 
       // These can be made user-adjustable
       const float wave_scale = .00000000775f;
