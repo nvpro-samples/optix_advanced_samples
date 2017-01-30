@@ -56,6 +56,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>

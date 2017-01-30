@@ -168,7 +168,7 @@ void debugPalette( const optix::uchar4* pal )
 
 void read_vox( const char* filename, std::vector< VoxelModel >& models, optix::uchar4 palette[256] )
 {
-    FILE* f = fopen( filename, "r" );
+    FILE* f = fopen( filename, "rb" );
     if ( !f ) {
         std::cerr << "Could not open file: " << filename << std::endl;
         ASSERT( f );
