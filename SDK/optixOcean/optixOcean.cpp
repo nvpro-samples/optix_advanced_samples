@@ -673,10 +673,11 @@ int main( int argc, char** argv )
         generateH0( height0 );
         h0_buffer->unmap();
 
+        const float3 camera_eye( make_float3( 1.47502f, 0.284192f, 0.8623f ) );
+        const float3 camera_lookat( make_float3( 0.0f, 0.0f, 0.0f ) );
+        const float3 camera_up( make_float3( 0.0f, 1.0f, 0.0f ) );
         sutil::Camera camera( WIDTH, HEIGHT, 
-                make_float3( 1.47502f, 0.284192f, 0.8623f ),  /*eye*/
-                make_float3( 0.0f, 0.0f, 0.0f ), /*lookat*/
-                make_float3( 0.0f, 1.0f,  0.0f ),    //up
+                &camera_eye.x, &camera_lookat.x, &camera_up.x,
                 context["eye"], context["U"], context["V"], context["W"] );
 
         // Finalize

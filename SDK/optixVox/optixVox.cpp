@@ -603,10 +603,11 @@ int main( int argc, char** argv )
 
         context->validate();
 
+        const optix::float3 camera_eye( optix::make_float3( 0.0f, 1.5f*aabb.extent( 1 ), 1.5f*aabb.extent( 2 ) ) );
+        const optix::float3 camera_lookat( aabb.center() );
+        const optix::float3 camera_up( optix::make_float3( 0.0f, 1.0f, 0.0f ) );
         sutil::Camera camera( WIDTH, HEIGHT, 
-                optix::make_float3( 0.0f, 1.5f*aabb.extent(1), 1.5f*aabb.extent(2) ),
-                aabb.center(),  // lookat
-                make_float3( 0.0f, 1.0f,  0.0f ),    //up
+                &camera_eye.x, &camera_lookat.x, &camera_up.x,
                 context["eye"], context["U"], context["V"], context["W"] );
 
         if ( out_file.empty() )
