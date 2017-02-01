@@ -113,7 +113,10 @@ void createContext( bool use_pbo )
     context = Context::create();
     context->setRayTypeCount( 1 );
     context->setEntryPointCount( 1 );
-    context->setStackSize( 2800 );
+
+    // Note: this sample does not need a big stack size even with high ray depths, 
+    // because rays are not shot recursively.
+    context->setStackSize( 600 );
 
     // Note: high max depth for reflection and refraction through glass
     context["max_depth"]->setInt( 10 );

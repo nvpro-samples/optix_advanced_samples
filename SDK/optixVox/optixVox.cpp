@@ -119,7 +119,7 @@ void createContext( bool use_pbo )
     context = Context::create();
     context->setRayTypeCount( 2 );
     context->setEntryPointCount( 1 );
-    context->setStackSize( 1024 );
+    context->setStackSize( 600 );
 
     context["max_depth"]->setInt( 2 );
     context["cutoff_color"]->setFloat( 0.2f, 0.2f, 0.2f );

@@ -192,7 +192,7 @@ void createContext( bool use_pbo, RenderBuffers& buffers )
     
     context->setRayTypeCount( 1 );
     context->setEntryPointCount( 4 );
-    context->setStackSize(2000);
+    context->setStackSize( 600 );
 
     context["scene_epsilon"       ]->setFloat( 1.e-3f );
     context["max_depth"           ]->setInt( 1 );
