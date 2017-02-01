@@ -83,6 +83,9 @@ RT_PROGRAM void pinhole_camera()
 
   float3 result = make_float3( 0.0f, 0.0f, 0.0f );
 
+  // Main render loop. This is not recursive, and for high ray depths
+  // will generally perform better than tracing radiance rays recursively
+  // in closest hit programs.
   for(;;) {
       optix::Ray ray(ray_origin, ray_direction, /*ray type*/ 0, scene_epsilon );
       rtTrace(top_object, ray, prd);

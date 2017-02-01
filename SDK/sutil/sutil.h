@@ -30,6 +30,7 @@
 #pragma once
 
 #include <optixu/optixpp_namespace.h>
+#include <optixu/optixu_aabb_namespace.h>
 #include <vector>
 
 #include "sutilapi.h"
@@ -100,6 +101,13 @@ void SUTILAPI resizeBuffer(
         optix::Buffer buffer,               // Buffer to be modified
         unsigned width,                     // New buffer width
         unsigned height );                  // New buffer height
+ 
+ // Create ground plane for scene with +Y as up direction
+optix::GeometryInstance SUTILAPI createOptiXGroundPlane( optix::Context context,
+                                                         const std::string& parallelogram_ptx, 
+                                                         const optix::Aabb& scene_aabb,
+                                                         optix::Material material,
+                                                         float scale );
 
 // Initialize GLFW.  Should be called before any GLFW display functions.
 // Returns the root GLFWwindow.

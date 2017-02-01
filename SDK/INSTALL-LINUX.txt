@@ -1,14 +1,13 @@
-In order to compile the samples in the SDK you need the following:
 
-1. CUDA Toolkit. Supported versions are listed in the release notes.
+Requirements for 64-bit Linux:
 
-2. CMake 3.0 minimum (http://www.cmake.org/cmake/resources/software.html).
+* CUDA Toolkit version 7.5+ and matching driver with supported GPU.
+* OptiX version 4.0+.
+* C++ compiler (gcc 4.8.4 has been tested)
+* CMake (http://www.cmake.org/cmake/resources/software.html).
 
-3. C++ compiler (gcc 4.4 and 4.8 been tested)
+Instructions for building:
 
-To compile:
-
-Instructions for building.
 1. Create a build directory other than the SDK/ directory.  Using a separate
    build directory allows multiple builds, differing in flavor, platform, etc.
 2. cd to new directory.

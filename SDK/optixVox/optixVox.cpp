@@ -28,8 +28,7 @@
 
 //-----------------------------------------------------------------------------
 //
-// optixVox: a sample that renders a subset of the MagicaVoxel VOX file format.
-// This was inspired by MagicaVoxel @ ephtracy.
+// optixVox: a sample that renders a subset of the VOX file format from MagicaVoxel @ ephtracy.
 // Demonstrates non-triangle geometry, and naive random path tracing.
 //
 //-----------------------------------------------------------------------------
@@ -56,6 +55,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -118,7 +118,7 @@ void createContext( bool use_pbo )
     context = Context::create();
     context->setRayTypeCount( 2 );
     context->setEntryPointCount( 1 );
-    context->setStackSize( 1024 );
+    context->setStackSize( 600 );
 
     context["max_depth"]->setInt( 2 );
     context["cutoff_color"]->setFloat( 0.2f, 0.2f, 0.2f );
@@ -295,25 +295,7 @@ optix::Aabb createGeometry(
     {
         // Ground plane
         const std::string ground_ptx = ptxPath( "parallelogram_iterative.cu" );
-        Geometry parallelogram = context->createGeometry();
-        parallelogram->setPrimitiveCount( 1u );
-        parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( ground_ptx, "bounds" ) );
-        parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( ground_ptx, "intersect" ) );
-        const float extent = 2.0f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
-        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.001f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
-        float3 v1 = make_float3( 0.0f, 0.0f, extent );
-        float3 v2 = make_float3( extent, 0.0f, 0.0f );
-        const float3 normal = normalize( cross( v1, v2 ) );
-        float d = dot( normal, anchor );
-        v1 *= 1.0f / dot( v1, v1 );
-        v2 *= 1.0f / dot( v2, v2 );
-        float4 plane = make_float4( normal, d );
-        parallelogram["plane"]->setFloat( plane );
-        parallelogram["v1"]->setFloat( v1 );
-        parallelogram["v2"]->setFloat( v2 );
-        parallelogram["anchor"]->setFloat( anchor );
-
-        GeometryInstance instance = context->createGeometryInstance( parallelogram, &diffuse_material, &diffuse_material + 1 );
+        GeometryInstance instance = sutil::createOptiXGroundPlane( context, ground_ptx, aabb, diffuse_material, 2.0f );
         geometry_group->addChild( instance );
     }
 
@@ -490,6 +472,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 sky.setSunTheta( sun_theta );
                 sky.setVariables( context );
                 sun.direction = sky.getSunDir();
+                sun.color = sky.sunColor() * SUN_SCALE;
                 memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
                 accumulation_frame = 0;
@@ -619,10 +602,11 @@ int main( int argc, char** argv )
 
         context->validate();
 
+        const optix::float3 camera_eye( optix::make_float3( 0.0f, 1.5f*aabb.extent( 1 ), 1.5f*aabb.extent( 2 ) ) );
+        const optix::float3 camera_lookat( aabb.center() );
+        const optix::float3 camera_up( optix::make_float3( 0.0f, 1.0f, 0.0f ) );
         sutil::Camera camera( WIDTH, HEIGHT, 
-                optix::make_float3( 0.0f, 1.5f*aabb.extent(1), 1.5f*aabb.extent(2) ),
-                aabb.center(),  // lookat
-                make_float3( 0.0f, 1.0f,  0.0f ),    //up
+                &camera_eye.x, &camera_lookat.x, &camera_up.x,
                 context["eye"], context["U"], context["V"], context["W"] );
 
         if ( out_file.empty() )

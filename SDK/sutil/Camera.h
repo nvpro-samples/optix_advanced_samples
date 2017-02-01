@@ -40,18 +40,20 @@ class Camera
 {
     public:
 
+    // Note: using generic float* rather than float3, to avoid potential link issues.  Some samples have float3
+    // in the global namespace and some have it in the optix namespace.
     SUTILAPI Camera( unsigned int width, unsigned int height, 
-            const optix::float3& camera_eye,
-            const optix::float3& camera_lookat,
-            const optix::float3& camera_up,
+            const float* camera_eye,
+            const float* camera_lookat,
+            const float* camera_up,
             optix::Variable eye, optix::Variable u, optix::Variable v, optix::Variable w) 
 
         : m_width( width ),
         m_height( height ),
-        m_camera_eye( camera_eye ),
-        m_save_camera_lookat( camera_lookat ),
-        m_camera_lookat( camera_lookat ),
-        m_camera_up( camera_up ),
+        m_camera_eye( optix::make_float3( camera_eye[0], camera_eye[1], camera_eye[2] ) ),
+        m_save_camera_lookat( optix::make_float3( camera_lookat[0], camera_lookat[1], camera_lookat[2] ) ),
+        m_camera_lookat( optix::make_float3( camera_lookat[0], camera_lookat[1], camera_lookat[2] ) ),
+        m_camera_up( optix::make_float3( camera_up[0], camera_up[1], camera_up[2] ) ),
         m_camera_rotate( optix::Matrix4x4::identity() ),
         m_variable_eye( eye ),
         m_variable_u( u ),

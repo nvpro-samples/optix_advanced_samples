@@ -28,7 +28,7 @@
 
 //-----------------------------------------------------------------------------
 //
-//  ocean.cpp: Demonstrate cuda-optix interop via ocean demo.  Based on CUDA
+//  optixOcean: Demonstrates cuda-optix interop via ocean demo.  Based on CUDA
 //             SDK sample oceanFFT.
 //
 //-----------------------------------------------------------------------------
@@ -47,6 +47,7 @@
 #include <sutil.h>
 #include <Camera.h>
 #include <SunSky.h>
+#include <random.h>
 
 #include <cufft.h>
 #include <cuda_runtime.h>
@@ -191,7 +192,7 @@ void createContext( bool use_pbo, RenderBuffers& buffers )
     
     context->setRayTypeCount( 1 );
     context->setEntryPointCount( 4 );
-    context->setStackSize(2000);
+    context->setStackSize( 600 );
 
     context["scene_epsilon"       ]->setFloat( 1.e-3f );
     context["max_depth"           ]->setInt( 1 );
@@ -336,14 +337,14 @@ float phillips(float Kx, float Ky, float Vdir, float V, float A)
 // Generate initial heightfield in frequency space
 void generateH0( float2* h_h0 )
 {
+  unsigned int seed = 0xDEADBEEF;
   for (unsigned int y = 0u; y < FFT_HEIGHT; y++) {
     for (unsigned int x = 0u; x < FFT_WIDTH; x++) {
       float kx = M_PIf * x / PATCH_SIZE;
       float ky = 2.0f * M_PIf * y / PATCH_SIZE;
 
-      // note - these random numbers should be from a Gaussian distribution really
-      float Er = 2.0f * rand() / static_cast<float>( RAND_MAX ) - 1.0f;
-      float Ei = 2.0f * rand() / static_cast<float>( RAND_MAX ) - 1.0f;
+      float Er = 2.0f * rnd( seed ) - 1.0f;
+      float Ei = 2.0f * rnd( seed ) - 1.0f;
 
       // These can be made user-adjustable
       const float wave_scale = .00000000775f;
@@ -673,10 +674,11 @@ int main( int argc, char** argv )
         generateH0( height0 );
         h0_buffer->unmap();
 
+        const float3 camera_eye( make_float3( 1.47502f, 0.284192f, 0.8623f ) );
+        const float3 camera_lookat( make_float3( 0.0f, 0.0f, 0.0f ) );
+        const float3 camera_up( make_float3( 0.0f, 1.0f, 0.0f ) );
         sutil::Camera camera( WIDTH, HEIGHT, 
-                make_float3( 1.47502f, 0.284192f, 0.8623f ),  /*eye*/
-                make_float3( 0.0f, 0.0f, 0.0f ), /*lookat*/
-                make_float3( 0.0f, 1.0f,  0.0f ),    //up
+                &camera_eye.x, &camera_lookat.x, &camera_up.x,
                 context["eye"], context["U"], context["V"], context["W"] );
 
         // Finalize

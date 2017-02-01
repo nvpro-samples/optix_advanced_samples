@@ -28,7 +28,7 @@
 
 //-----------------------------------------------------------------------------
 //
-// optixGlass: a glass shader example
+// optixGlass: a physically-based glass shader example, using path tracing.
 //
 //-----------------------------------------------------------------------------
 
@@ -113,7 +113,10 @@ void createContext( bool use_pbo )
     context = Context::create();
     context->setRayTypeCount( 1 );
     context->setEntryPointCount( 1 );
-    context->setStackSize( 2800 );
+
+    // Note: this sample does not need a big stack size even with high ray depths, 
+    // because rays are not shot recursively.
+    context->setStackSize( 600 );
 
     // Note: high max depth for reflection and refraction through glass
     context["max_depth"]->setInt( 10 );
@@ -229,25 +232,7 @@ optix::Aabb createGeometry(
     {
         // Ground plane
         const std::string floor_ptx = ptxPath( "parallelogram_iterative.cu" );
-        Geometry parallelogram = context->createGeometry();
-        parallelogram->setPrimitiveCount( 1u );
-        parallelogram->setBoundingBoxProgram( context->createProgramFromPTXFile( floor_ptx, "bounds" ) );
-        parallelogram->setIntersectionProgram( context->createProgramFromPTXFile( floor_ptx, "intersect" ) );
-        const float extent = 3.0f*fmaxf( aabb.extent( 0 ), aabb.extent( 2 ) );
-        const float3 anchor = make_float3( aabb.center(0) - 0.5f*extent, aabb.m_min.y - 0.01f*aabb.extent( 1 ), aabb.center(2) - 0.5f*extent );
-        float3 v1 = make_float3( 0.0f, 0.0f, extent );
-        float3 v2 = make_float3( extent, 0.0f, 0.0f );
-        const float3 normal = normalize( cross( v1, v2 ) );
-        float d = dot( normal, anchor );
-        v1 *= 1.0f / dot( v1, v1 );
-        v2 *= 1.0f / dot( v2, v2 );
-        float4 plane = make_float4( normal, d );
-        parallelogram["plane"]->setFloat( plane );
-        parallelogram["v1"]->setFloat( v1 );
-        parallelogram["v2"]->setFloat( v2 );
-        parallelogram["anchor"]->setFloat( anchor );
-
-        GeometryInstance instance = context->createGeometryInstance( parallelogram, &ground_material, &ground_material + 1 );
+        GeometryInstance instance = sutil::createOptiXGroundPlane( context, floor_ptx, aabb, ground_material, 3.0f );
         geometry_group->addChild( instance );
     }
 
@@ -545,10 +530,11 @@ int main( int argc, char** argv )
 
         context->validate();
 
+        const optix::float3 camera_eye( optix::make_float3( 0.0f, 1.5f*aabb.extent( 1 ), 1.5f*aabb.extent( 2 ) ) );
+        const optix::float3 camera_lookat( aabb.center() );
+        const optix::float3 camera_up( optix::make_float3( 0.0f, 1.0f, 0.0f ) );
         sutil::Camera camera( WIDTH, HEIGHT, 
-                optix::make_float3( 0.0f, 1.5f*aabb.extent(1), 1.5f*aabb.extent(2) ),
-                aabb.center(),  // lookat
-                make_float3( 0.0f, 1.0f,  0.0f ),    //up
+                &camera_eye.x, &camera_lookat.x, &camera_up.x,
                 context["eye"], context["U"], context["V"], context["W"] );
 
         if ( out_file.empty() )
