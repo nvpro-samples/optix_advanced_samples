@@ -28,7 +28,7 @@
 
 //-----------------------------------------------------------------------------
 //
-//  optixOcean: Demonstrate cuda-optix interop via ocean demo.  Based on CUDA
+//  optixOcean: Demonstrates cuda-optix interop via ocean demo.  Based on CUDA
 //             SDK sample oceanFFT.
 //
 //-----------------------------------------------------------------------------
