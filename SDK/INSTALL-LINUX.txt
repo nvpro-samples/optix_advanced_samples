@@ -1,28 +1,38 @@
 
 Requirements for 64-bit Linux:
 
-* CUDA Toolkit version 7.5+ and matching driver with supported GPU.
-* OptiX version 4.0+.
-* C++ compiler (gcc 4.8.4 has been tested)
-* CMake (http://www.cmake.org/cmake/resources/software.html).
+  * CUDA Toolkit version 7.5+ and matching driver with supported GPU.
+  * OptiX version 4.0+.
+  * C++ compiler (gcc 4.8.4 has been tested)
+  * CMake (http://www.cmake.org/cmake/resources/software.html).
 
 Instructions for building:
 
-1. Create a build directory other than the SDK/ directory.  Using a separate
-   build directory allows multiple builds, differing in flavor, platform, etc.
-2. cd to new directory.
-3. Run
+  * Create a build directory other than the SDK/ directory.  Using a separate
+    build directory allows multiple builds, differing in flavor, platform, etc.
+
+  * cd to new directory.
+
+  * Run
      $ ccmake <path>
-   where path is the path to the SDK/ directory.  This will bring up
-   the cmake interface.
-4. Press 'c' within ccmake to begin configure process.
-5. Adjust any options, such as build flavor, by moving cursor to field and
-   hitting <enter>, changing value, and hitting <enter> again.  One field you
-   may want to change is CMAKE_BUILD_TYPE to select a Debug build (it defaults
-   to Release which is an optimized build).
-6. Press 'c' again to finish configure.
-7. Press 'g' to generate Makefiles and exit.
-8. Run
+    where path is the path to the SDK/ directory.  This will bring up
+    the cmake interface.
+
+  * Press 'c' within ccmake to begin configure process.
+
+  * Set OptiX_INSTALL_DIR if it's blank, by moving the cursor over the field, hitting <enter>,
+    changing the value, and hitting <enter> again.
+
+  * Adjust other options. You may want to change CMAKE_BUILD_TYPE to select a 
+    Debug build rather than the default RELEASE build.
+
+  * Press 'c' again to finish configure.
+
+  * Press 'g' to generate Makefiles and exit.
+
+  * Run
      $ make
    to build.
-9. Executables should be found in the bin directory.
+
+  * Executables should be found in the bin directory.
+
