@@ -95,6 +95,7 @@ RT_PROGRAM void closest_hit_radiance()
                                1.0f :
                                fresnel( cos_theta_i, cos_theta_t, eta );
 
+    // Importance sample the Fresnel term
     const float z = rnd( prd_radiance.seed );
     if( z <= R ) {
         // Reflect
@@ -111,6 +112,9 @@ RT_PROGRAM void closest_hit_radiance()
         prd_radiance.direction = w_in; 
         prd_radiance.attenuation *= refraction_color*attenuation;
     }
+
+    // Note: we do not trace the ray for the next bounce here, we just set it up for
+    // the ray-gen program using per-ray data. 
 
 }
 

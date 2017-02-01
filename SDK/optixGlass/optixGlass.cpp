@@ -28,7 +28,7 @@
 
 //-----------------------------------------------------------------------------
 //
-// optixGlass: a glass shader example
+// optixGlass: a physically-based glass shader example, using path tracing.
 //
 //-----------------------------------------------------------------------------
 
