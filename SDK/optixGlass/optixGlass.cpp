@@ -116,7 +116,7 @@ void createContext( bool use_pbo )
 
     // Note: this sample does not need a big stack size even with high ray depths, 
     // because rays are not shot recursively.
-    context->setStackSize( 600 );
+    context->setStackSize( 800 );
 
     // Note: high max depth for reflection and refraction through glass
     context["max_depth"]->setInt( 10 );
@@ -200,45 +200,55 @@ optix::Aabb createGeometry(
         const std::vector<std::string>& filenames,
         const std::vector<optix::Matrix4x4>& xforms, 
         const Material glass_material,
-        const Material ground_material
+        const Material ground_material,
+        // output: this is a Group with two GeometryGroup children, for toggling visibility later
+        optix::Group& top_group
         )
 {
 
     const std::string ptx_path = ptxPath( "triangle_mesh_iterative.cu" );
 
+    top_group = context->createGroup();
+    top_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
+
     int num_triangles = 0;
     optix::Aabb aabb;
-    GeometryGroup geometry_group = context->createGeometryGroup();
-    for (size_t i = 0; i < filenames.size(); ++i) {
+    {
+        GeometryGroup geometry_group = context->createGeometryGroup();
+        geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
+        top_group->addChild( geometry_group );
+        for (size_t i = 0; i < filenames.size(); ++i) {
 
-        OptiXMesh mesh;
-        mesh.context = context;
-        
-        // override defaults
-        mesh.intersection = context->createProgramFromPTXFile( ptx_path, "mesh_intersect" );
-        mesh.bounds = context->createProgramFromPTXFile( ptx_path, "mesh_bounds" );
-        mesh.material = glass_material;
+            OptiXMesh mesh;
+            mesh.context = context;
+            
+            // override defaults
+            mesh.intersection = context->createProgramFromPTXFile( ptx_path, "mesh_intersect" );
+            mesh.bounds = context->createProgramFromPTXFile( ptx_path, "mesh_bounds" );
+            mesh.material = glass_material;
 
-        loadMesh( filenames[i], mesh, xforms[i] ); 
-        geometry_group->addChild( mesh.geom_instance );
+            loadMesh( filenames[i], mesh, xforms[i] ); 
+            geometry_group->addChild( mesh.geom_instance );
 
-        aabb.include( mesh.bbox_min, mesh.bbox_max );
+            aabb.include( mesh.bbox_min, mesh.bbox_max );
 
-        std::cerr << filenames[i] << ": " << mesh.num_triangles << std::endl;
-        num_triangles += mesh.num_triangles;
+            std::cerr << filenames[i] << ": " << mesh.num_triangles << std::endl;
+            num_triangles += mesh.num_triangles;
+        }
+        std::cerr << "Total triangle count: " << num_triangles << std::endl;
     }
-    std::cerr << "Total triangle count: " << num_triangles << std::endl;
 
     {
         // Ground plane
+        GeometryGroup geometry_group = context->createGeometryGroup();
+        geometry_group->setAcceleration( context->createAcceleration( "NoAccel" ) );
+        top_group->addChild( geometry_group );
         const std::string floor_ptx = ptxPath( "parallelogram_iterative.cu" );
         GeometryInstance instance = sutil::createOptiXGroundPlane( context, floor_ptx, aabb, ground_material, 3.0f );
         geometry_group->addChild( instance );
     }
 
-    geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
-
-    context[ "top_object"   ]->set( geometry_group ); 
+    context[ "top_object" ]->set( top_group ); 
 
     return aabb;
 }
@@ -344,7 +354,7 @@ GLFWwindow* glfwInitialize( )
 }
 
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_group )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -358,6 +368,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
     unsigned int accumulation_frame = 0;
     float3 glass_extinction = DEFAULT_EXTINCTION;
     int max_depth = 10;
+    bool draw_ground = true;
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -406,6 +417,16 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
             }
             if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
                 context["max_depth"]->setInt( max_depth );
+                accumulation_frame = 0;
+            }
+            if (ImGui::Checkbox( "draw ground plane", &draw_ground ) ) {
+                if ( draw_ground ) {
+                    context["top_object"]->set( top_group );
+                } else {
+                    // assume group has two children: mesh and ground
+                    GeometryGroup geomgroup = top_group->getChild<GeometryGroup>( 0 );
+                    context["top_object"]->set( geomgroup );
+                }
                 accumulation_frame = 0;
             }
             ImGui::End();
@@ -524,7 +545,8 @@ int main( int argc, char** argv )
 
         Material glass_material = createGlassMaterial();
         Material ground_material = createDiffuseMaterial();
-        const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, glass_material, ground_material );
+        optix::Group top_group;
+        const optix::Aabb aabb = createGeometry( mesh_files, mesh_xforms, glass_material, ground_material, top_group );
 
         // Note: lighting comes from miss program
 
@@ -539,7 +561,7 @@ int main( int argc, char** argv )
 
         if ( out_file.empty() )
         {
-            glfwRun( window, camera );
+            glfwRun( window, camera, top_group );
         }
         else
         {
