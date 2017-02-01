@@ -1,4 +1,6 @@
 
+# Developer script for running automated tests with diffs against gold images
+
 import sys
 import math
 import os.path

@@ -1,37 +1,31 @@
-In order to compile the samples in the SDK you need the following.
 
-1. Visual Studio. Supported versions are listed in the release notes.
+Requirements for 64-bit Windows:
 
-2. CUDA Toolkit. Supported versions are listed in the release notes.
+* CUDA Toolkit version 7.5+ and matching driver with supported GPU.
+* OptiX version 4.0+.
+* Visual Studio 2013 or 2015
+* CMake (http://www.cmake.org/cmake/resources/software.html).
 
-3. CMake 3.0 minimum (http://www.cmake.org/cmake/resources/software.html).
-I suggest the executable installer.
 
-
-Instructions for building.
+Instructions for building:
 
 1. Start up cmake-gui from the Start Menu.
 
-2. Select the C:\ProgramData\NVIDIA Corporation\OptiX SDK <version>\SDK directory
-   from the installation for the source file location.
+2. Select the SDK directory from optix_advanced_samples as the source file location.
 
-3. Create a build directory that isn't the same as the source directory.  For
-   example, C:\ProgramData\NVIDIA Corporation\OptiX SDK <version>\SDK\build.
-   If you don't have permissions to write into the this directory (writing into
-   the "C:/Program Files" directory can be restricted in some cases), pick a different
-   directory where you do have write permissions.  If you type in the directory
-   (instead of using the "Browse Build..." button), CMake will ask you at the
-   next step to create the directory for you if it doesn't already exist.
+3. Create a build directory that isn't the same as the source directory. 
+   For example, SDK\build. If you type in the directory instead of using the 
+   "Browse Build..." button, CMake will prompt to create the directory if
+   it doesn't already exist.
 
 4. Press "Configure" button and select the version of Visual Studio you wish to
    use.  Note that the 64-bit compiles are separate from the 32-bit compiles
    (e.g. look for "Visual Studio 12 2013 Win64").  Leave all other options on
-   their default.  Press "OK".  This can take a while while source level
-   dependencies for CUDA files are computed.
+   their default.  Press "OK".
 
 5. Press "Configure" again.  Followed by "Generate".
 
-6. Open the OptiX-Samples.sln solution file in the build directory you created.
+6. Open the OptiX-Advanced-Samples.sln solution file in the build directory you created.
 
 7. Select "Build Solution" from the IDE.
 
@@ -46,5 +40,3 @@ you to reload your projects.  Please do so.  Subsequent compiles should not
 result in reloading unless you change the files that are included by a CUDA
 file.
 
-Further instructions regarding the build system can be found in comments in the
-SDK's CMakeLists.txt file.
