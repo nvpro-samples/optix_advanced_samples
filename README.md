@@ -21,6 +21,6 @@ Other support libraries, e.g, GLFW and imgui, are bundled with this repository.
 
   * Clone this repository.  Samples are in optix_advanced_samples/SDK.
 
-Follow the build instructions in SDK/INSTALL-LINUX.txt or SDK/INSTALL-WIN.txt.
+Follow the build instructions in [SDK/INSTALL-LINUX.txt](./SDK/INSTALL-LINUX.txt) or [SDK/INSTALL-WIN.txt](./SDK/INSTALL-WIN.txt).
 
 
