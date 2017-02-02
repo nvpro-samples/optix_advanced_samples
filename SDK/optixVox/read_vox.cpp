@@ -43,12 +43,16 @@
 #include <vector>
 
 
-// Runtime assertion that does not get disabled in Release builds
+// Runtime assertion that does not get disabled in Release builds.
+// Requires "double-stringize" for __LINE__
+#define S(x) #x
+#define S_(x) S(x)
+#define S__LINE__ S_(__LINE__)
 #define ASSERT( condition )                                                                                         \
   do                                                                                                                \
   {                                                                                                                 \
     if( !( condition ) )                                                                                            \
-      throw std::runtime_error( std::string( __FILE__ ) + ":" + std::to_string( __LINE__) + ": " + #condition );    \
+      throw std::runtime_error( std::string( __FILE__ ) + ":" + S__LINE__ + ": " + #condition );    \
   } while( 0 )
 
 

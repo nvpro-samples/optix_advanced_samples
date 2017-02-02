@@ -96,9 +96,9 @@ if(NOT DEFINED OPTIX_USE_AGGRESSIVE_WARNINGS)
 endif()
 
 # Enable c++11
-if (USING_GNU_CXX OR USING_CLANG_CXX)
-  APPEND_TO_STRING( CXX_FLAGS "-std=c++11" )
-endif()
+#if (USING_GNU_CXX OR USING_CLANG_CXX)
+#  APPEND_TO_STRING( CXX_FLAGS "-std=c++11" )
+#endif()
 
 #############################################################
 # Set the default warning levels for each compiler.  Where the compiler runs on
