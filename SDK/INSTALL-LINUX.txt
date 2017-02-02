@@ -20,8 +20,9 @@ Instructions for building:
 
   * Press 'c' within ccmake to begin configure process.
 
-  * Set OptiX_INSTALL_DIR if it's blank, by moving the cursor over the field, hitting <enter>,
-    changing the value, and hitting <enter> again.
+  * Set OptiX_INSTALL_DIR to wherever you installed OptiX, e.g., "/usr/local/NVIDIA-OptiX-SDK-<version>", 
+    by moving the cursor over the field, hitting <enter>, changing the value, 
+    and hitting <enter> again.
 
   * Adjust other options. You may want to change CMAKE_BUILD_TYPE to select a 
     Debug build rather than the default RELEASE build.

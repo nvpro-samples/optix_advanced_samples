@@ -23,8 +23,8 @@ Instructions for building:
     (e.g. look for "Visual Studio 12 2013 Win64").  Leave all other options on
     their default.  Press "OK".
 
-  * Set OptiX_INSTALL_DIR to something like "C:\ProgramData\NVIDIA Corporation\OptiX SDK <version>\",
-    to use a separate OptiX install.
+  * Set OptiX_INSTALL_DIR to wherever you installed OptiX, e.g., 
+    "C:\ProgramData\NVIDIA Corporation\OptiX SDK <version>\".
 
   * Press "Configure" again, then "Generate".
 
