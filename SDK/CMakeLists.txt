@@ -145,7 +145,7 @@ mark_as_advanced(CLEAR CUDA_64_BIT_DEVICE_CODE)
 # wish from the GUI or from ccmake.
 if(NOT PASSED_FIRST_CONFIGURE)
 
-  list(APPEND default_nvcc_flags "--use_fast_math")
+  list(APPEND default_nvcc_flags "--use_fast_math" "-arch sm_30")
 
   if (CUDA_VERSION VERSION_LESS "3.0")
     list(APPEND default_nvcc_flags "--keep")
