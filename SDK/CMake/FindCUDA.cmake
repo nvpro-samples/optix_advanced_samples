@@ -428,11 +428,14 @@ option(CUDA_ENABLE_BATCHING "Compile CUDA source files in parallel.  EXPERIMENTA
 # Where to put the generated output.
 set(CUDA_GENERATED_OUTPUT_DIR "" CACHE PATH "Directory to put all the output files.  If blank it will default to the CMAKE_CURRENT_BINARY_DIR")
 
-if(CMAKE_GENERATOR MATCHES "Visual Studio")
-  set(_cuda_dependencies_default ON)
-else()
-  set(_cuda_dependencies_default OFF)
-endif()
+# Keeping this off to work around a bug with CUDA 8
+set(_cuda_dependencies_default OFF)
+
+#if(CMAKE_GENERATOR MATCHES "Visual Studio")
+#  set(_cuda_dependencies_default ON)
+#else()
+#  set(_cuda_dependencies_default OFF)
+#endif()
 
 option(CUDA_GENERATE_DEPENDENCIES_DURING_CONFIGURE "Generate dependencies during configure time instead of only during build time." ${_cuda_dependencies_default})
 
