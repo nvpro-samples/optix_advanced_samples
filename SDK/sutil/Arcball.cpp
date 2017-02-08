@@ -90,7 +90,7 @@ public:
 
     // l2 norm
     float norm() const
-    { return sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]); }
+    { return sqrtf(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]); }
 
     float  normalize();
 
@@ -119,7 +119,7 @@ inline Quaternion::Quaternion( float angle, const float3&  axis )
     q[0] = naxis.x*s*inverse;
     q[1] = naxis.y*s*inverse;
     q[2] = naxis.z*s*inverse;
-    q[3] = cos(angle/2.0f);
+    q[3] = cosf(angle/2.0f);
 }
 
 
@@ -289,11 +289,11 @@ float3 sutil::Arcball::toSphere(const float2& v) const
   float len2 = x*x + y*y;
   if (len2 > 1.0f) {
     // Project to closest point on edge of sphere.
-    float len = sqrt(len2);
+    float len = sqrtf(len2);
     x /= len;
     y /= len;
   } else {
-    z = sqrt(1.0f - len2);
+    z = sqrtf(1.0f - len2);
   }
   return make_float3( x, y, z );
 }

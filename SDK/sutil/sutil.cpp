@@ -817,7 +817,7 @@ double sutil::currentTime()
     if(!freq_initialized)
     {
         LARGE_INTEGER freq;
-        use_high_res_timer = QueryPerformanceFrequency( &freq );
+        use_high_res_timer = static_cast<bool>( QueryPerformanceFrequency( &freq ) );
         inv_freq = 1.0/freq.QuadPart;
         freq_initialized = 1;
     }
