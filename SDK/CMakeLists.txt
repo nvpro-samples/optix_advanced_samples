@@ -144,33 +144,39 @@ mark_as_advanced(CLEAR CUDA_64_BIT_DEVICE_CODE)
 # block of code will not be executed leaving you free to edit the values as much as you
 # wish from the GUI or from ccmake.
 if(NOT PASSED_FIRST_CONFIGURE)
-  set(flag "--use_fast_math")
-  list(FIND CUDA_NVCC_FLAGS ${flag} index)
-  if(index EQUAL -1)
-    list(APPEND CUDA_NVCC_FLAGS ${flag})
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} CACHE LIST "Semi-colon delimit multiple arguments." FORCE)
-  endif()
+
+  list(APPEND default_nvcc_flags "--use_fast_math")
 
   if (CUDA_VERSION VERSION_LESS "3.0")
-    set(flag "--keep")
-    list(FIND CUDA_NVCC_FLAGS ${flag} index)
-    if(index EQUAL -1)
-      list(APPEND CUDA_NVCC_FLAGS ${flag})
-      set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} CACHE LIST "Semi-colon delimit multiple arguments." FORCE)
-    endif()
+    list(APPEND default_nvcc_flags "--keep")
   endif()
 
   if( APPLE )
     # Undef'ing __BLOCKS__ for OSX builds.  This is due to a name clash between OSX 10.6
     # C headers and CUDA headers
-    set(flag "-U__BLOCKS__")
+    list(APPEND default_nvcc_flags "-U__BLOCKS__")
+  endif()
+
+  # Append to nvcc flags
+  foreach(flag IN LISTS default_nvcc_flags)
     list(FIND CUDA_NVCC_FLAGS ${flag} index)
     if(index EQUAL -1)
       list(APPEND CUDA_NVCC_FLAGS ${flag})
       set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} CACHE LIST "Semi-colon delimit multiple arguments." FORCE)
     endif()
-  endif()
+  endforeach(flag)
+
 endif(NOT PASSED_FIRST_CONFIGURE)
+
+# Add required nvcc flag for callable programs under CUDA 8
+if (CUDA_VERSION VERSION_GREATER "7.5")
+  set(flag "--keep-device-functions")
+  list(FIND CUDA_NVCC_FLAGS ${flag} index)
+  if(index EQUAL -1)
+    list(APPEND CUDA_NVCC_FLAGS ${flag})
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} CACHE LIST "Semi-colon delimit multiple arguments." FORCE)
+  endif()
+endif()
 
 # This passes a preprocessor definition to cl.exe when processing CUDA code.
 if(USING_WINDOWS_CL)
