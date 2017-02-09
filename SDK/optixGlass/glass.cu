@@ -28,7 +28,6 @@
 
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
-#include "helpers.h"
 #include "prd.h"
 #include "random.h"
 

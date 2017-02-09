@@ -40,8 +40,10 @@ OPTIX_add_sample_executable( optixVox
     diffuse.cu
     sunsky.cu
     prd.h
-    ${SAMPLES_CUDA_DIR}/parallelogram_iterative.cu
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
+    ${SAMPLES_CUDA_DIR}/intersection_refinement.h
+    ${SAMPLES_CUDA_DIR}/parallelogram_iterative.cu
+    ${SAMPLES_CUDA_DIR}/random.h
     )
 
