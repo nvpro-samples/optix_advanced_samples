@@ -233,7 +233,7 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/sutil
                      ${CUDA_INCLUDE_DIRS} )
 
 
-set(SAMPLES_CUDA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/cuda)
+set(SAMPLES_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 ##################################################################
 # IMGUI compilation

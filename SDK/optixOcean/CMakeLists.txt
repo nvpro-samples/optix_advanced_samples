@@ -26,8 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-# For commonStructs.h
-include_directories(${SAMPLES_CUDA_DIR})
+include_directories(${SAMPLES_INCLUDE_DIR})
 
 OPTIX_add_sample_executable( optixOcean
   optixOcean.cpp
@@ -39,10 +38,10 @@ OPTIX_add_sample_executable( optixOcean
   tonemap.cu
 
   # common headers
-  ${SAMPLES_CUDA_DIR}/commonStructs.h
-  ${SAMPLES_CUDA_DIR}/helpers.h
-  ${SAMPLES_CUDA_DIR}/intersection_refinement.h
-  ${SAMPLES_CUDA_DIR}/random.h
+  ${SAMPLES_INCLUDE_DIR}/commonStructs.h
+  ${SAMPLES_INCLUDE_DIR}/helpers.h
+  ${SAMPLES_INCLUDE_DIR}/intersection_refinement.h
+  ${SAMPLES_INCLUDE_DIR}/random.h
   )
 
 target_link_libraries( optixOcean

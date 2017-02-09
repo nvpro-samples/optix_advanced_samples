@@ -27,10 +27,10 @@
 #
 
 set(sources
-  ${SAMPLES_CUDA_DIR}/commonStructs.h
-  ${SAMPLES_CUDA_DIR}/helpers.h
-  ${SAMPLES_CUDA_DIR}/intersection_refinement.h
-  ${SAMPLES_CUDA_DIR}/random.h
+  ${SAMPLES_INCLUDE_DIR}/commonStructs.h
+  ${SAMPLES_INCLUDE_DIR}/helpers.h
+  ${SAMPLES_INCLUDE_DIR}/intersection_refinement.h
+  ${SAMPLES_INCLUDE_DIR}/random.h
   phong.h
   phong.cu
   triangle_mesh.cu
@@ -82,8 +82,8 @@ endif()
 
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-# For commonStructs.h
-include_directories(${SAMPLES_CUDA_DIR})
+# For commonStructs.h, etc
+include_directories(${SAMPLES_INCLUDE_DIR})
 
 # Compile the cuda files to ptx.  Note that this will ignore all of the non CUDA
 # files.
