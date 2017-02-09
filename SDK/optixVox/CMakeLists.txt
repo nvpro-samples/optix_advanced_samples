@@ -39,11 +39,13 @@ OPTIX_add_sample_executable( optixVox
     path_trace_camera.cu
     diffuse.cu
     sunsky.cu
+    parallelogram_iterative.cu
     prd.h
+
+    # common headers
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
     ${SAMPLES_CUDA_DIR}/intersection_refinement.h
-    ${SAMPLES_CUDA_DIR}/parallelogram_iterative.cu
     ${SAMPLES_CUDA_DIR}/random.h
     )
 

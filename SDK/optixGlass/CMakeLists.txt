@@ -37,9 +37,11 @@ OPTIX_add_sample_executable( optixGlass
     diffuse.cu
     glass.cu
     gradientbg.cu
+    parallelogram_iterative.cu
     prd.h
-    ${SAMPLES_CUDA_DIR}/parallelogram_iterative.cu
-    ${SAMPLES_CUDA_DIR}/triangle_mesh.cu
+    triangle_mesh.cu
+
+    # common headers
     ${SAMPLES_CUDA_DIR}/commonStructs.h
     ${SAMPLES_CUDA_DIR}/helpers.h
     ${SAMPLES_CUDA_DIR}/random.h

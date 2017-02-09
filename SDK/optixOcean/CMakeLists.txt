@@ -32,11 +32,13 @@ include_directories(${SAMPLES_CUDA_DIR})
 OPTIX_add_sample_executable( optixOcean
   optixOcean.cpp
 
+  accum_camera.cu
   ocean_sim.cu
   ocean_render.cu
   sunsky.cuh
   tonemap.cu
-  ${SAMPLES_CUDA_DIR}/accum_camera.cu
+
+  # common headers
   ${SAMPLES_CUDA_DIR}/commonStructs.h
   ${SAMPLES_CUDA_DIR}/helpers.h
   ${SAMPLES_CUDA_DIR}/intersection_refinement.h

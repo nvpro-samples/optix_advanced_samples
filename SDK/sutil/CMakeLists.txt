@@ -30,10 +30,10 @@ set(sources
   ${SAMPLES_CUDA_DIR}/commonStructs.h
   ${SAMPLES_CUDA_DIR}/helpers.h
   ${SAMPLES_CUDA_DIR}/intersection_refinement.h
-  ${SAMPLES_CUDA_DIR}/phong.h
-  ${SAMPLES_CUDA_DIR}/phong.cu
   ${SAMPLES_CUDA_DIR}/random.h
-  ${SAMPLES_CUDA_DIR}/triangle_mesh.cu
+  phong.h
+  phong.cu
+  triangle_mesh.cu
   rply-1.01/rply.c
   rply-1.01/rply.h
   Arcball.cpp
