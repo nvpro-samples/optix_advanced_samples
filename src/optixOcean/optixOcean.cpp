@@ -300,7 +300,6 @@ void createGeometry()
   geometrygroup->setAcceleration( context->createAcceleration("NoAccel","NoAccel") );
   
   context["top_object"]->set( geometrygroup );
-  context["top_shadower"]->set( geometrygroup );
 }
 
 

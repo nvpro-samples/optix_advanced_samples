@@ -37,7 +37,6 @@ rtDeclareVariable(unsigned int,      radiance_ray_type, , );
 rtDeclareVariable(unsigned int,      shadow_ray_type, , );
 rtDeclareVariable(float,             scene_epsilon, , );
 rtDeclareVariable(rtObject,          top_object, , );
-rtDeclareVariable(rtObject,          top_shadower, , );
 
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
@@ -93,7 +92,7 @@ __device__ void phongShade( float3 p_Kd,
       PerRayData_shadow shadow_prd;
       shadow_prd.attenuation = make_float3(1.0f);
       optix::Ray shadow_ray = optix::make_Ray( hit_point, L, shadow_ray_type, scene_epsilon, Ldist );
-      rtTrace(top_shadower, shadow_ray, shadow_prd);
+      rtTrace(top_object, shadow_ray, shadow_prd);
       light_attenuation = shadow_prd.attenuation;
     }
 
