@@ -206,7 +206,7 @@ optix::Aabb createGeometry(
         )
 {
 
-    const std::string ptx_path = ptxPath( "triangle_mesh_iterative.cu" );
+    const std::string ptx_path = ptxPath( "triangle_mesh.cu" );
 
     top_group = context->createGroup();
     top_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
@@ -223,7 +223,7 @@ optix::Aabb createGeometry(
             mesh.context = context;
             
             // override defaults
-            mesh.intersection = context->createProgramFromPTXFile( ptx_path, "mesh_intersect" );
+            mesh.intersection = context->createProgramFromPTXFile( ptx_path, "mesh_intersect_refine" );
             mesh.bounds = context->createProgramFromPTXFile( ptx_path, "mesh_bounds" );
             mesh.material = glass_material;
 
