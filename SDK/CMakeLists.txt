@@ -26,33 +26,32 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Welcome to the OptiX SDK build.  We have chosen CMake, because it can generate multiple
+# Welcome to the optix_advanced_samples build.  We have chosen CMake, because it can generate multiple
 # build systems for multiple architectures from a single script.  There are many resources
 # for CMake on-line at http://www.cmake.org and their wiki page,
 # http://www.cmake.org/Wiki/CMake, in addition to the documentation that comes with the
 # distribution.  There is also a book available if you wish to delve more deeply into
 # various topics.
 
-# If you wish to create your own project and use the SDK as a template there are a number
+# If you wish to create your own project and use the files here as a template there are a number
 # of things you should do.
-#
-# 1. You should copy the contents of the SDK to a place of your choice.
 # 
-# 2. You can remove any sample's directory you don't wish to build.  Be careful about
+# 1. You can remove any sample's directory you don't wish to build.  Be careful about
 #    the following directories.
 #
 #    a. CMake - contains helper scripts that make this all work.  You should keep this.
 #
-#    b. sutil and putil 
+#    b. sutil and support
 #              - Almost all of the samples make use of this shared code one way or another, so
-#               you should probably keep them until you have your own frameowrk for your
+#               you should probably keep it until you have your own frameowrk for your
 #               code.
 #
-#    d. data  - This directory contains the cow.obj file used as an example for
-#               many of the samples.  You can move cow.obj anywhere as long as
-#               you fix all the file paths in the samples you wish to use it in.
+#    d. data  - This directory contains meshes, textures, etc, used as input for the samples.
 #
-# 3. You should update the list of sub directories that CMake needs to process below (look
+#    e. include - This directory contains common device or device/host functions used by .cu files
+#                 in some samples.
+#
+# 2. You should update the list of sub directories that CMake needs to process below (look
 #    for the comment "List of samples found in subdirectories.")
 #
 
@@ -64,7 +63,7 @@
 # 2. Look for external dependencies, such as glut, DirectX, CUDA, and OptiX.
 #
 # 3. Process all the subdirectories' CMakeLists.txt files.  These files create all the
-#    executable and library targets that are used to build the SDK.
+#    executable and library targets that are used to build the samples.
 #
 # 4. As a convenience on Windows, copy the OptiX dlls into the build directories, so OptiX
 #    doesn't have to be in the path to run the samples.
@@ -196,7 +195,7 @@ if( APPLE )
   set( CUDA_TOOLKIT_RPATH_FLAG "-Wl,-rpath,${CUDA_TOOLKIT_ROOT_DIR}/lib" )
 endif()
 
-# Locate the NVRT distribution.  Search the SDK first, then look in the system.
+# Locate the OptiX distribution.
 set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/../" CACHE PATH "Path to OptiX installed location.")
 
 # Search for the OptiX libraries and include files.
