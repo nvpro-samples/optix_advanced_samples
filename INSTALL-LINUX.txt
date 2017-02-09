@@ -1,21 +1,21 @@
 
 Requirements for 64-bit Linux:
 
-  * CUDA Toolkit version 7.5+ and matching driver with supported GPU.
-  * OptiX version 4.0+.
+  * OptiX version 4.0+
+  * GPU, driver, and CUDA toolkit supported by OptiX, as specified in the OptiX Release Notes
   * C++ compiler (gcc 4.8.4 has been tested)
   * CMake (http://www.cmake.org/cmake/resources/software.html).
 
 Instructions for building:
 
-  * Create a build directory other than the SDK/ directory.  Using a separate
+  * Create a build directory other than the src/ directory.  Using a separate
     build directory allows multiple builds, differing in flavor, platform, etc.
 
   * cd to new directory.
 
   * Run
      $ ccmake <path>
-    where path is the path to the SDK/ directory.  This will bring up
+    where path is the path to the src/ directory.  This will bring up
     the cmake interface.
 
   * Press 'c' within ccmake to begin configure process.

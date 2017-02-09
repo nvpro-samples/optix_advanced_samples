@@ -1,22 +1,20 @@
 
 Requirements for 64-bit Windows:
 
-* CUDA Toolkit version 7.5+ and matching driver with supported GPU.
-* OptiX version 4.0+.
-* Visual Studio 2013 or 2015
+* OptiX version 4.0+
+* GPU, driver, and CUDA toolkit supported by OptiX, as specified in the OptiX Release Notes
+* Microsoft Visual Studio: either VS 2013 for CUDA 7.5, or VS 2015 for CUDA 8
 * CMake (http://www.cmake.org/cmake/resources/software.html).
-
 
 Instructions for building:
 
   * Start up cmake-gui from the Start Menu.
 
-  * Select the SDK directory from optix_advanced_samples as the source file location.
+  * Select the "src" directory from optix_advanced_samples as the source file location.
 
   * Create a build directory that isn't the same as the source directory. 
-    For example, SDK\build. If you type in the directory instead of using the 
-    "Browse Build..." button, CMake will prompt to create the directory if
-    it doesn't already exist.
+    Hint: if you type in the directory instead of using the "Browse Build..." button, 
+    CMake will prompt to create the directory if it doesn't already exist.
 
   * Press "Configure" button and select the version of Visual Studio you wish to
     use.  Note that the 64-bit compiles are separate from the 32-bit compiles
