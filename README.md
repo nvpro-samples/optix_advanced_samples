@@ -2,7 +2,7 @@
 optix_advanced_samples
 ==================
 
-This is a set of advanced samples for the [NVIDIA OptiX Ray Tracing Engine](https://developer.nvidia.com).
+This is a set of advanced samples for the [NVIDIA OptiX Ray Tracing Engine](https://developer.nvidia.com/optix).
 They assume some previous experience with OptiX, unlike the basic
 tutorial-style samples in the SDK directory of the OptiX 4.0 distribution.
 They also use some different libraries than the SDK samples; GLFW and imgui in
