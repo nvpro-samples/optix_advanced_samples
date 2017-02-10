@@ -2,7 +2,7 @@
 optixGlass
 ==========
 
-![Glass Teapot](../../scripts/optixGlass.gold.png)
+![Glass Teapot](./optixGlass.png)
 
 A physically based glass shader example, using path tracing.
 
