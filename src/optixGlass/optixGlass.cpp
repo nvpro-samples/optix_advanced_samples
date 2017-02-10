@@ -63,7 +63,7 @@ using namespace optix;
 const char* const SAMPLE_NAME = "optixGlass";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
-const float3 DEFAULT_EXTINCTION = make_float3( 0.1f, 0.63, 0.3f );
+const float3 DEFAULT_EXTINCTION = make_float3( 0.1f, 0.63f, 0.3f );
 
 //------------------------------------------------------------------------------
 //
@@ -536,7 +536,7 @@ int main( int argc, char** argv )
 
             // Default scene
 
-            const optix::Matrix4x4 xform = optix::Matrix4x4::rotate( -M_PI/2.0, make_float3( 0.0f, 1.0f, 0.0f) );
+            const optix::Matrix4x4 xform = optix::Matrix4x4::rotate( -M_PIf/2.0f, make_float3( 0.0f, 1.0f, 0.0f) );
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/teapot_lid.ply" );
             mesh_xforms.push_back( xform );
             mesh_files.push_back( std::string( sutil::samplesDir() ) + "/data/teapot_body.ply" );
