@@ -49,12 +49,6 @@ rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
 // -----------------------------------------------------------------------------
 
-
-static __device__ __inline__ float3 exp( const float3& x )
-{
-  return make_float3(exp(x.x), exp(x.y), exp(x.z));
-}
-
 static __device__ __inline__ float fresnel( float cos_theta_i, float cos_theta_t, float eta )
 {
     const float rs = ( cos_theta_i - cos_theta_t*eta ) / 
@@ -80,7 +74,7 @@ RT_PROGRAM void closest_hit_radiance()
         eta = refraction_index;  // Note: does not handle nested dielectrics
     } else {
         // Ray is exiting.
-        attenuation = exp(extinction_constant * t_hit);
+        attenuation = optix::expf(extinction_constant * t_hit);
         eta         = 1.0f / refraction_index;
         cos_theta_i = -cos_theta_i;
         normal      = -normal;
