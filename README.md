@@ -9,7 +9,7 @@ They also use some different libraries than the SDK samples; GLFW and imgui in
 place of GLUT, for example.  This means you cannot generally copy one of the
 advanced samples directly into the SDK, and vice versa.
 
-Some samples, like optixVox, are new.  Others used to ship in some form with
+Some samples, like [optixVox](./src/optixVox), are new.  Others used to ship in some form with
 OptiX prior to version 4.
 
 For requirements and build instructions see [INSTALL-LINUX.txt](./INSTALL-LINUX.txt) or [INSTALL-WIN.txt](./INSTALL-WIN.txt).
