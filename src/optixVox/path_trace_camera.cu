@@ -58,7 +58,7 @@ RT_PROGRAM void pinhole_camera()
 
   // Subpixel jitter: send the ray through a different position inside the pixel each time,
   // to provide antialiasing.
-  float2 subpixel_jitter = frame == 0 ? make_float2(0.0f, 0.0f) : make_float2(rnd( seed ) - 0.5f, rnd( seed ) - 0.5f);
+  float2 subpixel_jitter = frame == 0 ? make_float2( 0.0f ) : make_float2(rnd( seed ) - 0.5f, rnd( seed ) - 0.5f);
 
   float2 d = (make_float2(launch_index) + subpixel_jitter) / make_float2(screen) * 2.f - 1.f;
   float3 ray_origin = eye;
@@ -72,17 +72,20 @@ RT_PROGRAM void pinhole_camera()
   // These represent the current shading state and will be set by the closest-hit or miss program
 
   // brdf attenuation from surface interaction
-  prd.attenuation = make_float3( 1.0f, 1.0f, 1.0f );
+  prd.attenuation = make_float3( 1.0f );
 
   // light from a light source or miss program
-  prd.radiance = make_float3( 0.0f, 0.0f, 0.0f );
+  prd.radiance = make_float3( 0.0f );
 
   // next ray to be traced
-  prd.origin = make_float3( 0.0f, 0.0f, 0.0f );
-  prd.direction = make_float3( 0.0f, 0.0f, 0.0f );
+  prd.origin = make_float3( 0.0f );
+  prd.direction = make_float3( 0.0f );
 
-  float3 result = make_float3( 0.0f, 0.0f, 0.0f );
+  float3 result = make_float3( 0.0f );
 
+  // Main render loop. This is not recursive, and for high ray depths
+  // will generally perform better than tracing radiance rays recursively
+  // in closest hit programs.
   for(;;) {
       optix::Ray ray(ray_origin, ray_direction, /*ray type*/ 0, scene_epsilon );
       rtTrace(top_object, ray, prd);
@@ -109,9 +112,8 @@ RT_PROGRAM void pinhole_camera()
   } else {
     acc_val = make_float4( result, 0.f );
   }
-  accum_buffer[launch_index] = acc_val;
   output_buffer[launch_index] = make_color( make_float3( acc_val ) );
-
+  accum_buffer[launch_index] = acc_val;
 }
 
 RT_PROGRAM void exception()
