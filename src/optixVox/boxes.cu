@@ -77,7 +77,7 @@ RT_PROGRAM void intersect( int primId )
 {
     // Expand cell in unit box
     const uchar4 b = box_buffer[primId];
-    const float3 inv_box_dims = make_float3( 1.0f ) / make_float3( 255.0f );
+    const float3 inv_box_dims = make_float3( 1.0f / 255.0f );
     const float3 boxmin = anchor + make_float3( b.x, b.y, b.z ) * inv_box_dims;
     const float3 boxmax = boxmin + inv_box_dims;
 
@@ -91,8 +91,8 @@ RT_PROGRAM void intersect( int primId )
     if(tmin <= tmax) {
         bool check_second = true;
         if( rtPotentialIntersection( tmin ) ) {
-            int color_index = (int)box_buffer[primId].w;
-            geometry_color = make_float4( palette_buffer[ color_index ] ) / make_float4( 255.0f );
+            unsigned char color_index = box_buffer[primId].w;
+            geometry_color = make_float4( palette_buffer[ color_index ] ) * ( 1.0f / 255.0f );
             shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmin );
 
             const float3 anchor = boxanchor( boxmin, boxmax, tmin );
@@ -105,8 +105,8 @@ RT_PROGRAM void intersect( int primId )
         } 
         if(check_second) {
             if( rtPotentialIntersection( tmax ) ) {
-                int color_index = (int)box_buffer[primId].w;
-                geometry_color = make_float4( palette_buffer[ color_index ] ) / make_float4( 255.0f );
+                unsigned char color_index = box_buffer[primId].w;
+                geometry_color = make_float4( palette_buffer[ color_index ] ) * ( 1.0f / 255.0f );
                 shading_normal = geometric_normal = boxnormal( boxmin, boxmax, tmax );
 
                 const float3 anchor = boxanchor( boxmin, boxmax, tmax );
@@ -123,7 +123,7 @@ RT_PROGRAM void intersect( int primId )
 RT_PROGRAM void bounds (int primId, float result[6])
 {
     const uchar4 b = box_buffer[primId];
-    const float3 inv_box_dims = make_float3( 1.0f ) / make_float3( 255.0f );
+    const float3 inv_box_dims = make_float3( 1.0f / 255.0f );
     const float3 boxmin = anchor + make_float3( b.x, b.y, b.z ) * inv_box_dims;
     const float3 boxmax = boxmin + inv_box_dims;
 
