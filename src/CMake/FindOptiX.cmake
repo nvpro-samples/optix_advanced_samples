@@ -26,10 +26,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Locate the OptiX distribution.  Search relative to the SDK first, then look in the system.
-
-# Our initial guess will be within the SDK.
-set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/../" CACHE PATH "Path to OptiX installed location.")
 
 # Adjust the library search path based on the bit-ness of the build.  
 # (i.e. 64: bin64, lib64; 32: bin, lib).  
@@ -41,19 +37,31 @@ else()
   set(bit_dest "")
 endif()
 
-# Adjust the library search path based on the OS.  This part of the path does not exist
-# for a distribution that is external to the advanced SDK samples, so we search both
-# with and without it below.
-if(WIN32)
-  set(os_dest "OptiX-4.0.1-win64")
-else()
-  set(os_dest "OptiX-4.0.1-linux64")
+
+set(OptiX_INSTALL_DIR "" CACHE PATH "Path to OptiX installed location.  Leave blank to search default locations on Windows.")
+
+set( optix_lib_paths "")
+set( optix_bin_paths "")
+set( optix_include_paths "")
+if (WIN32)
+  # Look for OptiX distributions in default location on Windows
+  file(GLOB optix_paths "C:/ProgramData/NVIDIA Corporation/OptiX SDK*")
+  list(SORT optix_paths)
+  list(REVERSE optix_paths)
+  foreach( path ${optix_paths})
+    if(IS_DIRECTORY ${path})
+        list(APPEND optix_lib_paths ${path}/lib${bit_dest})
+        list(APPEND optix_bin_paths ${path}/bin${bit_dest})
+        list(APPEND optix_include_paths ${path}/include)
+    endif()
+  endforeach()
 endif()
+
 
 macro(OPTIX_find_api_library name version)
   find_library(${name}_LIBRARY
     NAMES ${name}.${version} ${name}
-    PATHS "${OptiX_INSTALL_DIR}/lib${bit_dest}" "${OptiX_INSTALL_DIR}/${os_dest}/lib${bit_dest}"
+    PATHS "${OptiX_INSTALL_DIR}/lib${bit_dest}" ${optix_lib_paths} 
     NO_DEFAULT_PATH
     )
   find_library(${name}_LIBRARY
@@ -62,7 +70,7 @@ macro(OPTIX_find_api_library name version)
   if(WIN32)
     find_file(${name}_DLL
       NAMES ${name}.${version}.dll
-      PATHS "${OptiX_INSTALL_DIR}/bin${bit_dest}" "${OptiX_INSTALL_DIR}/${os_dest}/bin${bit_dest}"
+      PATHS "${OptiX_INSTALL_DIR}/bin${bit_dest}" ${optix_bin_paths}
       NO_DEFAULT_PATH
       )
     find_file(${name}_DLL
@@ -78,7 +86,7 @@ OPTIX_find_api_library(optix_prime 1)
 # Include
 find_path(OptiX_INCLUDE
   NAMES optix.h
-  PATHS "${OptiX_INSTALL_DIR}/include" 
+  PATHS "${OptiX_INSTALL_DIR}/include" ${optix_include_paths}
   NO_DEFAULT_PATH
   )
 find_path(OptiX_INCLUDE
