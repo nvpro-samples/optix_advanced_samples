@@ -55,7 +55,6 @@ rtDeclareVariable(float,         scene_epsilon, , );
 rtBuffer<uchar4, 2>              output_buffer;
 rtBuffer<float4, 2>              accum_buffer;
 rtDeclareVariable(rtObject,      top_object, , );
-rtDeclareVariable(unsigned int,  radiance_ray_type, , );
 rtDeclareVariable(unsigned int,  frame, , );
 rtDeclareVariable(uint2,         launch_index, rtLaunchIndex, );
 
@@ -74,7 +73,7 @@ RT_PROGRAM void pinhole_camera()
   float3 ray_origin = eye;
   float3 ray_direction = normalize(d.x*U + d.y*V + W);
   
-  optix::Ray ray(ray_origin, ray_direction, radiance_ray_type, scene_epsilon );
+  optix::Ray ray(ray_origin, ray_direction, /*radiance ray type*/ 0, scene_epsilon );
 
   PerRayData_radiance prd;
   prd.depth = 0;

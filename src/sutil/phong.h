@@ -33,8 +33,6 @@
 rtDeclareVariable(int,               max_depth, , );
 rtBuffer<BasicLight>                 lights;
 rtDeclareVariable(float3,            ambient_light_color, , );
-rtDeclareVariable(unsigned int,      radiance_ray_type, , );
-rtDeclareVariable(unsigned int,      shadow_ray_type, , );
 rtDeclareVariable(float,             scene_epsilon, , );
 rtDeclareVariable(rtObject,          top_object, , );
 
@@ -91,7 +89,7 @@ __device__ void phongShade( float3 p_Kd,
     if ( nDl > 0.0f && light.casts_shadow ) {
       PerRayData_shadow shadow_prd;
       shadow_prd.attenuation = make_float3(1.0f);
-      optix::Ray shadow_ray = optix::make_Ray( hit_point, L, shadow_ray_type, scene_epsilon, Ldist );
+      optix::Ray shadow_ray = optix::make_Ray( hit_point, L, /*shadow ray type*/ 1, scene_epsilon, Ldist );
       rtTrace(top_object, shadow_ray, shadow_prd);
       light_attenuation = shadow_prd.attenuation;
     }
@@ -120,7 +118,7 @@ __device__ void phongShade( float3 p_Kd,
     // reflection ray
     if( new_prd.depth <= max_depth) {
       float3 R = optix::reflect( ray.direction, p_normal );
-      optix::Ray refl_ray = optix::make_Ray( hit_point, R, radiance_ray_type, scene_epsilon, RT_DEFAULT_MAX );
+      optix::Ray refl_ray = optix::make_Ray( hit_point, R, /*radiance ray type*/ 0, scene_epsilon, RT_DEFAULT_MAX );
       rtTrace(top_object, refl_ray, new_prd);
       result += p_Kr * new_prd.result;
     }
