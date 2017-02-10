@@ -48,7 +48,7 @@
 #
 #    d. data  - This directory contains meshes, textures, etc, used as input for the samples.
 #
-#    e. include - This directory contains common device or device/host functions used by .cu files
+#    e. device_include - This directory contains common device or device/host functions used by .cu files
 #                 in some samples.
 #
 # 2. You should update the list of sub directories that CMake needs to process below (look
@@ -195,8 +195,6 @@ if( APPLE )
   set( CUDA_TOOLKIT_RPATH_FLAG "-Wl,-rpath,${CUDA_TOOLKIT_ROOT_DIR}/lib" )
 endif()
 
-# Locate the OptiX distribution.
-set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/../" CACHE PATH "Path to OptiX installed location.")
 
 # Search for the OptiX libraries and include files.
 find_package(OptiX REQUIRED)
@@ -232,7 +230,7 @@ include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/sutil
                      ${CUDA_INCLUDE_DIRS} )
 
 
-set(SAMPLES_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(SAMPLES_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/device_include)
 
 ##################################################################
 # IMGUI compilation
