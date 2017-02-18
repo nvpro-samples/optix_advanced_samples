@@ -303,6 +303,7 @@ endfunction()
 add_subdirectory(optixHello)
 add_subdirectory(optixGlass)
 add_subdirectory(optixOcean)
+add_subdirectory(optixProgressivePhotonMap)
 add_subdirectory(optixVox)
 
 
