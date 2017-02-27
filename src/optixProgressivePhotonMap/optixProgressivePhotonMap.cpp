@@ -685,6 +685,40 @@ GLFWwindow* glfwInitialize( )
 }
 
 
+void launch_all( const sutil::Camera& camera, unsigned int photon_launch_dim, unsigned int accumulation_frame, 
+    Buffer photons_buffer, Buffer photon_map_buffer )
+{
+    if ( accumulation_frame == 1 ) {
+        // Trace viewing rays
+        context->launch( rtpass, camera.width(), camera.height() );
+        context["total_emitted"]->setFloat(  0.0f );
+    }
+
+    // Trace photons
+    {
+        Buffer photon_rnd_seeds = context["photon_rnd_seeds"]->getBuffer();
+        uint2* seeds = reinterpret_cast<uint2*>( photon_rnd_seeds->map() );
+        for ( unsigned int i = 0; i < photon_launch_dim*photon_launch_dim; ++i ) {
+            seeds[i] = random2u();
+        }
+        photon_rnd_seeds->unmap();
+        context->launch( ppass, photon_launch_dim, photon_launch_dim );
+    }
+
+    // By computing the total number of photons as an unsigned long long we avoid 32 bit
+    // floating point addition errors when the number of photons gets sufficiently large
+    // (the error of adding two floating point numbers when the mantissa bits no longer
+    // overlap).
+    context["total_emitted"]->setFloat( static_cast<float>((unsigned long long)accumulation_frame*photon_launch_dim*photon_launch_dim) );
+
+    // Build KD tree
+    createPhotonMap( photons_buffer, photon_map_buffer );
+
+    // Shade view rays by gathering photons
+    context->launch( gather, camera.width(), camera.height() );
+
+}
+
 void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_launch_dim, Buffer photons_buffer, Buffer photon_map_buffer )
 {
     // Initialize GL state
@@ -697,8 +731,6 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_lau
 
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
-    int max_depth = 10;
-    bool draw_ground = true;
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -738,34 +770,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_lau
         // Render main window
 
         context["frame_number"]->setFloat( static_cast<float>( accumulation_frame++ ) );
-        if ( accumulation_frame == 1 ) {
-            // Trace viewing rays
-            context->launch( rtpass, camera.width(), camera.height() );
-            context["total_emitted"]->setFloat(  0.0f );
-        }
-
-        // Trace photons
-        {
-            Buffer photon_rnd_seeds = context["photon_rnd_seeds"]->getBuffer();
-            uint2* seeds = reinterpret_cast<uint2*>( photon_rnd_seeds->map() );
-            for ( unsigned int i = 0; i < photon_launch_dim*photon_launch_dim; ++i ) {
-                seeds[i] = random2u();
-            }
-            photon_rnd_seeds->unmap();
-            context->launch( ppass, photon_launch_dim, photon_launch_dim );
-        }
-
-        // By computing the total number of photons as an unsigned long long we avoid 32 bit
-        // floating point addition errors when the number of photons gets sufficiently large
-        // (the error of adding two floating point numbers when the mantissa bits no longer
-        // overlap).
-        context["total_emitted"]->setFloat( static_cast<float>((unsigned long long)accumulation_frame*photon_launch_dim*photon_launch_dim) );
-
-        // Build KD tree
-        createPhotonMap( photons_buffer, photon_map_buffer );
-
-        // Shade view rays by gathering photons
-        context->launch( gather, camera.width(), camera.height() );
+        launch_all( camera, photon_launch_dim, accumulation_frame, photons_buffer, photon_map_buffer );
         sutil::displayBufferGL( getOutputBuffer() );
 
         const unsigned int buffer_width = camera.width();
@@ -946,7 +951,15 @@ int main( int argc, char** argv )
         }
         else
         {
-           // TODO: batch mode 
+            const unsigned int numframes = 16;
+            std::cerr << "Accumulating " << numframes << " frames ..." << std::endl;
+            for ( unsigned int frame = 0; frame < numframes; ++frame ) {
+                context["frame_number"]->setFloat( static_cast<float>( frame++ ) );
+                launch_all( camera, photon_launch_dim, frame, photons_buffer, photon_map_buffer );
+            }
+            sutil::writeBufferToFile( out_file.c_str(), getOutputBuffer() );
+            std::cerr << "Wrote " << out_file << std::endl;
+            destroyContext();
         }
         return 0;
     }
