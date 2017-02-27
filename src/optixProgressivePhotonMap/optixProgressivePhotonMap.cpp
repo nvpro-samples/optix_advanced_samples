@@ -49,7 +49,7 @@
 #include <sutil.h>
 #include <Camera.h>
 
-#include "OptiXMesh.h"
+#include "Mesh.h"
 #include "ppm.h"
 #include "random.h"
 #include "select.h"
@@ -57,6 +57,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -282,29 +283,126 @@ void createContext( bool use_pbo )
 }
 
 
-Material createMaterial() 
+namespace
 {
 
-    Program closest_hit1 = context->createProgramFromPTXFile( ptxPath( "ppm_rtpass.cu" ), "rtpass_closest_hit" );
-    Program closest_hit2 = context->createProgramFromPTXFile( ptxPath( "ppm_ppass.cu" ), "ppass_closest_hit" );
-    Program any_hit      = context->createProgramFromPTXFile( ptxPath( "ppm_gather.cu" ), "gather_any_hit" );
-    Material material    = context->createMaterial();
-    material->setClosestHitProgram( 0u, closest_hit1 );
-    material->setClosestHitProgram( 1u, closest_hit2 );
-    material->setAnyHitProgram( 2u, any_hit );
-    return material;
+// Utilities for translating Mesh data to OptiX buffers.  These are copied and pasted from sutil.
+
+struct MeshBuffers
+{
+  optix::Buffer tri_indices;
+  optix::Buffer mat_indices;
+  optix::Buffer positions;
+  optix::Buffer normals;
+  optix::Buffer texcoords;
+};
+
+void setupMeshLoaderInputs(
+    optix::Context            context, 
+    MeshBuffers&              buffers,
+    Mesh&                     mesh
+    )
+{
+  buffers.tri_indices = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_INT3,   mesh.num_triangles );
+  buffers.mat_indices = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_INT,    mesh.num_triangles );
+  buffers.positions   = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT3, mesh.num_vertices );
+  buffers.normals     = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT3,
+                                               mesh.has_normals ? mesh.num_vertices : 0);
+  buffers.texcoords   = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT2,
+                                               mesh.has_texcoords ? mesh.num_vertices : 0);
+
+  mesh.tri_indices = reinterpret_cast<int32_t*>( buffers.tri_indices->map() );
+  mesh.mat_indices = reinterpret_cast<int32_t*>( buffers.mat_indices->map() );
+  mesh.positions   = reinterpret_cast<float*>  ( buffers.positions->map() );
+  mesh.normals     = reinterpret_cast<float*>  ( mesh.has_normals   ? buffers.normals->map()   : 0 );
+  mesh.texcoords   = reinterpret_cast<float*>  ( mesh.has_texcoords ? buffers.texcoords->map() : 0 );
+
+  mesh.mat_params = new MaterialParams[ mesh.num_materials ];
 }
 
-void createGeometry( Material material )
+
+void unmap( MeshBuffers& buffers, Mesh& mesh )
+{
+  buffers.tri_indices->unmap();
+  buffers.mat_indices->unmap();
+  buffers.positions->unmap();
+  if( mesh.has_normals )
+    buffers.normals->unmap();
+  if( mesh.has_texcoords)
+    buffers.texcoords->unmap();
+
+  mesh.tri_indices = 0; 
+  mesh.mat_indices = 0;
+  mesh.positions   = 0;
+  mesh.normals     = 0;
+  mesh.texcoords   = 0;
+
+  delete [] mesh.mat_params;
+  mesh.mat_params = 0;
+}
+
+} //namespace
+
+void createGeometry( )
 {
     GeometryGroup geometry_group = context->createGeometryGroup();
     std::string full_path = std::string( sutil::samplesDir() ) + "/data/wedding-band.obj";
 
-    OptiXMesh mesh;
-    mesh.context = context;
-    mesh.material = material; // override with single material
-    loadMesh( full_path, mesh ); 
-    geometry_group->addChild( mesh.geom_instance );
+    // We use the base Mesh class rather than OptiXMesh, so we can set up our own materials.
+    Mesh mesh;
+    MeshLoader loader( full_path );
+    loader.scanMesh( mesh );
+
+    MeshBuffers buffers;
+    setupMeshLoaderInputs( context, buffers, mesh );
+
+    loader.loadMesh( mesh );
+
+    // Translate to OptiX geometry
+    const std::string path = ptxPath( "triangle_mesh.cu" );
+    optix::Program bounds_program = context->createProgramFromPTXFile( path, "mesh_bounds" );
+    optix::Program intersection_program = context->createProgramFromPTXFile( path, "mesh_intersect" );
+
+    optix::Geometry geometry = context->createGeometry();  
+    geometry[ "vertex_buffer"   ]->setBuffer( buffers.positions ); 
+    geometry[ "normal_buffer"   ]->setBuffer( buffers.normals); 
+    geometry[ "texcoord_buffer" ]->setBuffer( buffers.texcoords ); 
+    geometry[ "material_buffer" ]->setBuffer( buffers.mat_indices); 
+    geometry[ "index_buffer"    ]->setBuffer( buffers.tri_indices); 
+    geometry->setPrimitiveCount     ( mesh.num_triangles );
+    geometry->setBoundingBoxProgram ( bounds_program );
+    geometry->setIntersectionProgram( intersection_program );
+
+
+    Program closest_hit1 = context->createProgramFromPTXFile( ptxPath( "ppm_rtpass.cu" ), "rtpass_closest_hit" );
+    Program closest_hit2 = context->createProgramFromPTXFile( ptxPath( "ppm_ppass.cu" ), "ppass_closest_hit" );
+    Program any_hit      = context->createProgramFromPTXFile( ptxPath( "ppm_gather.cu" ), "gather_any_hit" );
+
+    std::vector< optix::Material > optix_materials;
+    for (int i = 0; i < mesh.num_materials; ++i) {
+
+        optix::Material material = context->createMaterial();
+        material->setClosestHitProgram( 0u, closest_hit1 );
+        material->setClosestHitProgram( 1u, closest_hit2 );
+        material->setAnyHitProgram( 2u, any_hit );
+
+        material["Kd"]->set3fv( mesh.mat_params[i].Kd );
+        material["Ks"]->set3fv( mesh.mat_params[i].Ks );
+        material[ "grid_color" ]->setFloat( 0.5f, 0.5f, 0.5f );
+        material[ "use_grid" ]->setUint( mesh.mat_params[i].name == "01_-_Default" ? 1u : 0 );
+
+        optix_materials.push_back( material );
+    }
+
+    optix::GeometryInstance geom_instance = context->createGeometryInstance(
+            geometry,
+            optix_materials.begin(),
+            optix_materials.end()
+            );
+
+    unmap( buffers, mesh );
+
+    geometry_group->addChild( geom_instance );
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
 
     context["top_object"]->set( geometry_group );
@@ -837,8 +935,7 @@ int main( int argc, char** argv )
                 &camera_eye.x, &camera_lookat.x, &camera_up.x,
                 context["rtpass_eye"], context["rtpass_U"], context["rtpass_V"], context["rtpass_W"] );
 
-        Material material = createMaterial();
-        createGeometry( material );
+        createGeometry();
         PPMLight light;
         createLight( light );
 
