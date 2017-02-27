@@ -171,9 +171,9 @@ RT_PROGRAM void ppass_camera()
 //
 // Closest hit material
 //
-rtDeclareVariable(float3,  Ks, , );
-rtDeclareVariable(float3,  Kd, , );
-rtDeclareVariable(float3,  emitted, , );
+rtDeclareVariable(float3,  Ks, , )={0,0,0};
+rtDeclareVariable(float3,  Kd, , )={0.7,0.7,0.7};
+rtDeclareVariable(float3,  emitted, , )={0,0,0};
 rtDeclareVariable(float3, geometric_normal, attribute geometric_normal, ); 
 rtDeclareVariable(float3, shading_normal, attribute shading_normal, ); 
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );

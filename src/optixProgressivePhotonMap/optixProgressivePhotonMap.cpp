@@ -49,9 +49,10 @@
 #include <sutil.h>
 #include <Camera.h>
 
-#include "PpmObjLoader.h"
+#include "OptiXMesh.h"
 #include "ppm.h"
 #include "random.h"
+#include "select.h"
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
@@ -71,6 +72,14 @@ const unsigned int MAX_PHOTON_COUNT = 2u;
 const unsigned int photon_launch_dim = 512u;  // TODO
 const float LIGHT_THETA = 1.15f;
 const float LIGHT_PHI = 2.19f;
+
+const bool DEBUG_STATS = false;
+
+enum SplitChoice {
+  RoundRobin,
+  HighestVariance,
+  LongestDim
+};
 
 //------------------------------------------------------------------------------
 //
@@ -196,7 +205,7 @@ void createContext( bool use_pbo )
     context["alpha"]->setFloat( 0.7f );
     context["total_emitted"]->setFloat( 0.0f );
     context["frame_number"]->setFloat( 0.0f );
-    context["use_debug_buffer"]->setUint( 0 );  // TODO
+    context["use_debug_buffer"]->setUint( DEBUG_STATS );
 
     Buffer buffer = sutil::createOutputBuffer( context, RT_FORMAT_FLOAT4, WIDTH, HEIGHT, use_pbo );
     context["output_buffer"]->set( buffer );
@@ -291,16 +300,12 @@ void createGeometry( Material material )
     GeometryGroup geometry_group = context->createGeometryGroup();
     std::string full_path = std::string( sutil::samplesDir() ) + "/data/wedding-band.obj";
 
-#if 0
     OptiXMesh mesh;
     mesh.context = context;
     mesh.material = material; // override with single material
     loadMesh( full_path, mesh ); 
     geometry_group->addChild( mesh.geom_instance );
     geometry_group->setAcceleration( context->createAcceleration( "Trbvh" ) );
-#endif
-    PpmObjLoader loader( full_path, context, geometry_group, "Trbvh" );
-    loader.load();
 
     context["top_object"]->set( geometry_group );
     context["top_shadower"]->set( geometry_group );
@@ -321,7 +326,171 @@ void createLight( PPMLight& light )
     context["envmap"]->setTextureSampler( sutil::loadTexture( context, full_path, default_color) );
 }
 
+//------------------------------------------------------------------------------
+//
+//  Photon map management
+//
+//------------------------------------------------------------------------------
 
+bool photonCmpX( PhotonRecord* r1, PhotonRecord* r2 ) { return r1->position.x < r2->position.x; }
+bool photonCmpY( PhotonRecord* r1, PhotonRecord* r2 ) { return r1->position.y < r2->position.y; }
+bool photonCmpZ( PhotonRecord* r1, PhotonRecord* r2 ) { return r1->position.z < r2->position.z; }
+
+
+void buildKDTree( PhotonRecord** photons, int start, int end, int depth, PhotonRecord* kd_tree, int current_root,
+                  SplitChoice split_choice, float3 bbmin, float3 bbmax)
+{
+  // If we have zero photons, this is a NULL node
+  if( end - start == 0 ) {
+    kd_tree[current_root].axis = PPM_NULL;
+    kd_tree[current_root].energy = make_float3( 0.0f );
+    return;
+  }
+
+  // If we have a single photon
+  if( end - start == 1 ) {
+    photons[start]->axis = PPM_LEAF;
+    kd_tree[current_root] = *(photons[start]);
+    return;
+  }
+
+  // Choose axis to split on
+  int axis;
+  switch(split_choice) {
+  case RoundRobin:
+    {
+      axis = depth%3;
+    }
+    break;
+  case HighestVariance:
+    {
+      float3 mean  = make_float3( 0.0f ); 
+      float3 diff2 = make_float3( 0.0f );
+      for(int i = start; i < end; ++i) {
+        float3 x     = photons[i]->position;
+        float3 delta = x - mean;
+        float3 n_inv = make_float3( 1.0f / ( static_cast<float>( i - start ) + 1.0f ) );
+        mean = mean + delta * n_inv;
+        diff2 += delta*( x - mean );
+      }
+      float3 n_inv = make_float3( 1.0f / ( static_cast<float>(end-start) - 1.0f ) );
+      float3 variance = diff2 * n_inv;
+      axis = max_component(variance);
+    }
+    break;
+  case LongestDim:
+    {
+      float3 diag = bbmax-bbmin;
+      axis = max_component(diag);
+    }
+    break;
+  default:
+    axis = -1;
+    std::cerr << "Unknown SplitChoice " << split_choice << " at "<<__FILE__<<":"<<__LINE__<<"\n";
+    exit(2);
+    break;
+  }
+
+  int median = (start+end) / 2;
+  PhotonRecord** start_addr = &(photons[start]);
+
+  switch( axis ) {
+  case 0:
+    select<PhotonRecord*, 0>( start_addr, 0, end-start-1, median-start );
+    photons[median]->axis = PPM_X;
+    break;
+  case 1:
+    select<PhotonRecord*, 1>( start_addr, 0, end-start-1, median-start );
+    photons[median]->axis = PPM_Y;
+    break;
+  case 2:
+    select<PhotonRecord*, 2>( start_addr, 0, end-start-1, median-start );
+    photons[median]->axis = PPM_Z;
+    break;
+  }
+
+  float3 rightMin = bbmin;
+  float3 leftMax  = bbmax;
+  if(split_choice == LongestDim) {
+    float3 midPoint = (*photons[median]).position;
+    switch( axis ) {
+      case 0:
+        rightMin.x = midPoint.x;
+        leftMax.x  = midPoint.x;
+        break;
+      case 1:
+        rightMin.y = midPoint.y;
+        leftMax.y  = midPoint.y;
+        break;
+      case 2:
+        rightMin.z = midPoint.z;
+        leftMax.z  = midPoint.z;
+        break;
+    }
+  }
+
+  kd_tree[current_root] = *(photons[median]);
+  buildKDTree( photons, start, median, depth+1, kd_tree, 2*current_root+1, split_choice, bbmin,  leftMax );
+  buildKDTree( photons, median+1, end, depth+1, kd_tree, 2*current_root+2, split_choice, rightMin, bbmax );
+}
+
+void createPhotonMap()
+{
+
+  const SplitChoice split_choice = LongestDim;  // TODO: option
+
+  // TODO: pass buffer as parameters, no get by name
+  Buffer photons_buffer = context["ppass_output_buffer"]->getBuffer();
+  PhotonRecord* photons_data    = reinterpret_cast<PhotonRecord*>( photons_buffer->map() );
+  Buffer photon_map_buffer = context["photon_map"]->getBuffer();
+  PhotonRecord* photon_map_data = reinterpret_cast<PhotonRecord*>( photon_map_buffer->map() );
+
+
+  RTsize photon_map_size;
+  photon_map_buffer->getSize( photon_map_size );
+  for( unsigned int i = 0; i < (unsigned int)photon_map_size; ++i ) {
+    photon_map_data[i].energy = make_float3( 0.0f );
+  }
+
+  // Push all valid photons to front of list
+  RTsize num_photons;
+  photons_buffer->getSize( num_photons );
+  unsigned int valid_photons = 0;
+  PhotonRecord** temp_photons = new PhotonRecord*[num_photons];
+  for( unsigned int i = 0; i < (unsigned int)num_photons; ++i ) {
+    if( fmaxf( photons_data[i].energy ) > 0.0f ) {
+      temp_photons[valid_photons++] = &photons_data[i];
+    }
+  }
+  if ( DEBUG_STATS ) {
+    std::cerr << " ** valid_photon/m_num_photons =  " 
+              << valid_photons<<"/"<<num_photons
+              <<" ("<<valid_photons/static_cast<float>(num_photons)<<")\n";
+  }
+
+  // Make sure we aren't at most 1 less than power of 2
+  valid_photons = valid_photons >= photon_map_size ? photon_map_size : valid_photons;
+
+  float3 bbmin = make_float3(0.0f);
+  float3 bbmax = make_float3(0.0f);
+  if( split_choice == LongestDim ) {
+    bbmin = make_float3(  std::numeric_limits<float>::max() );
+    bbmax = make_float3( -std::numeric_limits<float>::max() );
+    // Compute the bounds of the photons
+    for(unsigned int i = 0; i < valid_photons; ++i) {
+      float3 position = (*temp_photons[i]).position;
+      bbmin = fminf(bbmin, position);
+      bbmax = fmaxf(bbmax, position);
+    }
+  }
+
+  // Now build KD tree
+  buildKDTree( temp_photons, 0, valid_photons, 0, photon_map_data, 0, split_choice, bbmin, bbmax );
+
+  delete[] temp_photons;
+  photon_map_buffer->unmap();
+  photons_buffer->unmap();
+}
 
 
 //------------------------------------------------------------------------------
@@ -500,14 +669,74 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
         // overlap).
         context["total_emitted"]->setFloat( static_cast<float>((unsigned long long)accumulation_frame*photon_launch_dim*photon_launch_dim) );
 
-        // Build KD tree   TODO
-        //createPhotonMap();
+        // Build KD tree
+        createPhotonMap();
 
         // Shade view rays by gathering photons
         context->launch( gather, camera.width(), camera.height() );
         sutil::displayBufferGL( getOutputBuffer() );
 
-        // TODO: debug output
+        const unsigned int buffer_width = camera.width();
+        const unsigned int buffer_height = camera.height();
+
+        // Debug output
+        if( DEBUG_STATS ) {
+          double t0 = sutil::currentTime( );
+          Buffer debug_buffer = context["debug_buffer"]->getBuffer();
+          float4* debug_data = reinterpret_cast<float4*>( debug_buffer->map() );
+          Buffer hit_records = context["rtpass_output_buffer"]->getBuffer();
+          HitRecord* hit_record_data = reinterpret_cast<HitRecord*>( hit_records->map() );
+          float4 avg  = make_float4( 0.0f );
+          float4 minv = make_float4( std::numeric_limits<float>::max() );
+          float4 maxv = make_float4( 0.0f );
+          float counter = 0.0f;
+          for( unsigned int j = 0; j < buffer_height; ++j ) {
+            for( unsigned int i = 0; i < buffer_width; ++i ) {
+              /*
+                 if( i < 10 && j < 10 && 0) {
+                 fprintf( stderr, " %08.4f %08.4f %08.4f %08.4f\n", debug_data[j*buffer_width+i].x,
+                 debug_data[j*buffer_width+i].y,
+                 debug_data[j*buffer_width+i].z,
+                 debug_data[j*buffer_width+i].w );
+                 }
+                 */
+
+
+              if( hit_record_data[j*buffer_width+i].flags & PPM_HIT ) {
+                float4 val = debug_data[j*buffer_width+i];
+                avg += val;
+                minv = fminf(minv, val);
+                maxv = fmaxf(maxv, val);
+                counter += 1.0f;
+              }
+            }
+          }
+          debug_buffer->unmap();
+          hit_records->unmap();
+
+          avg = avg / counter; 
+          double t1 = sutil::currentTime( );
+          if (true) std::cerr << "Stat collection time ...           " << t1 - t0 << std::endl;
+          std::cerr << "(min, max, average):"
+            << " loop iterations: ( "
+            << minv.x << ", "
+            << maxv.x << ", "
+            << avg.x << " )"
+            << " radius: ( "
+            << minv.y << ", "
+            << maxv.y << ", "
+            << avg.y << " )"
+            << " N: ( "
+            << minv.z << ", "
+            << maxv.z << ", "
+            << avg.z << " )"
+            << " M: ( "
+            << minv.w << ", "
+            << maxv.w << ", "
+            << avg.w << " )";
+          std::cerr << ", total_iterations = "<<accumulation_frame;
+          std::cerr << std::endl;
+        }
 
         // Render gui over it
         ImGui::Render();
