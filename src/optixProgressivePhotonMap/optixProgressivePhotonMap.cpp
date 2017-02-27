@@ -70,7 +70,7 @@ const char* const SAMPLE_NAME = "optixProgressivePhotonMap";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 768u;
 const unsigned int MAX_PHOTON_COUNT = 2u;
-const unsigned int photon_launch_dim = 512u;  // TODO
+const unsigned int PHOTON_LAUNCH_DIM = 512u;
 const float LIGHT_THETA = 1.15f;
 const float LIGHT_PHI = 2.19f;
 
@@ -172,7 +172,7 @@ enum ProgramEnum {
     NUM_PROGRAMS
 };
 
-void createContext( bool use_pbo, Buffer& photons_buffer, Buffer& photon_map_buffer )
+void createContext( bool use_pbo, unsigned int photon_launch_dim, Buffer& photons_buffer, Buffer& photon_map_buffer )
 {
     // Set up context
     context = Context::create();
@@ -685,7 +685,7 @@ GLFWwindow* glfwInitialize( )
 }
 
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera, Buffer photons_buffer, Buffer photon_map_buffer )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_launch_dim, Buffer photons_buffer, Buffer photon_map_buffer )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -847,6 +847,7 @@ void printUsageAndExit( const std::string& argv0 )
         "  -h | --help                  Print this usage message and exit.\n"
         "  -f | --file <output_file>    Save image to file and exit.\n"
         "  -n | --nopbo                 Disable GL interop for display buffer.\n"
+        "       --photon-dim <n>        Width and height of photon launch grid. Default = " << PHOTON_LAUNCH_DIM << ".\n"
         "App Keystrokes:\n"
         "  q  Quit\n"
         "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
@@ -861,6 +862,7 @@ void printUsageAndExit( const std::string& argv0 )
 int main( int argc, char** argv )
 {
     bool use_pbo = true;
+    unsigned int photon_launch_dim = PHOTON_LAUNCH_DIM;
     std::string out_file;
     std::vector<std::string> mesh_files;
     std::vector<optix::Matrix4x4> mesh_xforms;
@@ -884,6 +886,16 @@ int main( int argc, char** argv )
         else if( arg == "-n" || arg == "--nopbo"  )
         {
             use_pbo = false;
+        }
+        else if( arg == "--photon-dim" )
+        {
+            if( i == argc-1 )
+            {
+                std::cerr << "Option '" << arg << "' requires additional argument.\n";
+                printUsageAndExit( argv[0] );
+            }
+            int tmp = atoi( argv[++i] );
+            if (tmp > 0) photon_launch_dim = static_cast<unsigned int>(tmp);
         }
         else if( arg[0] == '-' )
         {
@@ -912,7 +924,7 @@ int main( int argc, char** argv )
 
         Buffer photons_buffer;
         Buffer photon_map_buffer;
-        createContext( use_pbo, photons_buffer, photon_map_buffer );
+        createContext( use_pbo, photon_launch_dim, photons_buffer, photon_map_buffer );
 
         // initial camera data
         const optix::float3 camera_eye( optix::make_float3( -235.0f, 220.0f, 0.0f ) );
@@ -930,7 +942,7 @@ int main( int argc, char** argv )
         
         if ( out_file.empty() )
         {
-            glfwRun( window, camera, photons_buffer, photon_map_buffer );
+            glfwRun( window, camera, photon_launch_dim, photons_buffer, photon_map_buffer );
         }
         else
         {
