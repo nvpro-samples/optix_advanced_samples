@@ -969,7 +969,7 @@ int main( int argc, char** argv )
         createContext( use_pbo, photon_launch_dim, photons_buffer, photon_map_buffer );
 
         // initial camera data
-        const optix::float3 camera_eye( optix::make_float3( -235.0f, 220.0f, 0.0f ) );
+        const optix::float3 camera_eye( optix::make_float3( -188.0f, 176.0f, 0.0f ) );
         const optix::float3 camera_lookat( optix::make_float3( 0.0f, 0.0f, 0.0f ) );
         const optix::float3 camera_up( optix::make_float3( 0.0f, 1.0f, 0.0f ) );
         sutil::Camera camera( WIDTH, HEIGHT, 
