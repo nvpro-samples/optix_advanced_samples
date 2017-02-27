@@ -172,7 +172,7 @@ enum ProgramEnum {
     NUM_PROGRAMS
 };
 
-void createContext( bool use_pbo )
+void createContext( bool use_pbo, Buffer& photons_buffer, Buffer& photon_map_buffer )
 {
     // Set up context
     context = Context::create();
@@ -245,9 +245,9 @@ void createContext( bool use_pbo )
 
     // Photon pass
     const unsigned int num_photons = photon_launch_dim * photon_launch_dim * MAX_PHOTON_COUNT;
-    Buffer ppass_buffer = context->createBuffer( RT_BUFFER_OUTPUT, RT_FORMAT_USER, num_photons );
-    ppass_buffer->setElementSize( sizeof( PhotonRecord ) );
-    context["ppass_output_buffer"]->set( ppass_buffer );
+    photons_buffer = context->createBuffer( RT_BUFFER_OUTPUT, RT_FORMAT_USER, num_photons );
+    photons_buffer->setElementSize( sizeof( PhotonRecord ) );
+    context["ppass_output_buffer"]->set( photons_buffer );
 
     {
         const std::string ptx_path = ptxPath( "ppm_ppass.cu");
@@ -275,9 +275,9 @@ void createContext( bool use_pbo )
         context->setExceptionProgram( gather, exception_program );
 
         unsigned int photon_map_size = pow2roundup( num_photons ) - 1;
-        Buffer photon_map = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, photon_map_size );
-        photon_map->setElementSize( sizeof( PhotonRecord ) );
-        context["photon_map"]->set( photon_map );
+        photon_map_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, photon_map_size );
+        photon_map_buffer->setElementSize( sizeof( PhotonRecord ) );
+        context["photon_map"]->set( photon_map_buffer );
     }
 
 }
@@ -532,17 +532,12 @@ void buildKDTree( PhotonRecord** photons, int start, int end, int depth, PhotonR
   buildKDTree( photons, median+1, end, depth+1, kd_tree, 2*current_root+2, split_choice, rightMin, bbmax );
 }
 
-void createPhotonMap()
+void createPhotonMap( Buffer photons_buffer, Buffer photon_map_buffer )
 {
+  const SplitChoice split_choice = LongestDim;
 
-  const SplitChoice split_choice = LongestDim;  // TODO: option
-
-  // TODO: pass buffer as parameters, no get by name
-  Buffer photons_buffer = context["ppass_output_buffer"]->getBuffer();
   PhotonRecord* photons_data    = reinterpret_cast<PhotonRecord*>( photons_buffer->map() );
-  Buffer photon_map_buffer = context["photon_map"]->getBuffer();
   PhotonRecord* photon_map_data = reinterpret_cast<PhotonRecord*>( photon_map_buffer->map() );
-
 
   RTsize photon_map_size;
   photon_map_buffer->getSize( photon_map_size );
@@ -659,7 +654,6 @@ void windowSizeCallback( GLFWwindow* window, int w, int h )
 
     sutil::resizeBuffer( getOutputBuffer(), width, height );
 
-    // TODO: not by name
     sutil::resizeBuffer( context[ "debug_buffer" ]->getBuffer(), width, height );
     sutil::resizeBuffer( context[ "rtpass_output_buffer" ]->getBuffer(), width, height );
     sutil::resizeBuffer( context[ "image_rnd_seeds" ]->getBuffer(), width, height );
@@ -691,7 +685,7 @@ GLFWwindow* glfwInitialize( )
 }
 
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, Buffer photons_buffer, Buffer photon_map_buffer )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -768,7 +762,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
         context["total_emitted"]->setFloat( static_cast<float>((unsigned long long)accumulation_frame*photon_launch_dim*photon_launch_dim) );
 
         // Build KD tree
-        createPhotonMap();
+        createPhotonMap( photons_buffer, photon_map_buffer );
 
         // Shade view rays by gathering photons
         context->launch( gather, camera.width(), camera.height() );
@@ -790,15 +784,6 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera )
           float counter = 0.0f;
           for( unsigned int j = 0; j < buffer_height; ++j ) {
             for( unsigned int i = 0; i < buffer_width; ++i ) {
-              /*
-                 if( i < 10 && j < 10 && 0) {
-                 fprintf( stderr, " %08.4f %08.4f %08.4f %08.4f\n", debug_data[j*buffer_width+i].x,
-                 debug_data[j*buffer_width+i].y,
-                 debug_data[j*buffer_width+i].z,
-                 debug_data[j*buffer_width+i].w );
-                 }
-                 */
-
 
               if( hit_record_data[j*buffer_width+i].flags & PPM_HIT ) {
                 float4 val = debug_data[j*buffer_width+i];
@@ -925,7 +910,9 @@ int main( int argc, char** argv )
         }
 #endif
 
-        createContext( use_pbo );
+        Buffer photons_buffer;
+        Buffer photon_map_buffer;
+        createContext( use_pbo, photons_buffer, photon_map_buffer );
 
         // initial camera data
         const optix::float3 camera_eye( optix::make_float3( -235.0f, 220.0f, 0.0f ) );
@@ -943,7 +930,7 @@ int main( int argc, char** argv )
         
         if ( out_file.empty() )
         {
-            glfwRun( window, camera );
+            glfwRun( window, camera, photons_buffer, photon_map_buffer );
         }
         else
         {
