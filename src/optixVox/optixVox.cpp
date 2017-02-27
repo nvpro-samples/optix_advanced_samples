@@ -415,7 +415,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
     float sun_phi = sky.getSunPhi();
-    float sun_theta = sky.getSunTheta();
+    float sun_theta = 0.5f*M_PIf - sky.getSunTheta();
     float sun_radius = SUN_RADIUS;
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
@@ -468,8 +468,8 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 light_buffer->unmap();
                 accumulation_frame = 0;
             }
-            if (ImGui::SliderAngle( "sun lowness", &sun_theta, 0.0f, 90.0f ) ) {
-                sky.setSunTheta( sun_theta );
+            if (ImGui::SliderAngle( "sun elevation", &sun_theta, 0.0f, 90.0f ) ) {
+                sky.setSunTheta( 0.5f*M_PIf - sun_theta );
                 sky.setVariables( context );
                 sun.direction = sky.getSunDir();
                 sun.color = sky.sunColor() * SUN_SCALE;
