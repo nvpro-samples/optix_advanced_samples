@@ -284,10 +284,9 @@ void createContext( bool use_pbo, unsigned int photon_launch_dim, Buffer& photon
 }
 
 
+// Utilities for translating Mesh data to OptiX buffers.  These are copied and pasted from sutil.
 namespace
 {
-
-// Utilities for translating Mesh data to OptiX buffers.  These are copied and pasted from sutil.
 
 struct MeshBuffers
 {
@@ -342,14 +341,16 @@ void unmap( MeshBuffers& buffers, Mesh& mesh )
   mesh.mat_params = 0;
 }
 
-} //namespace
+} // namespace
+
 
 void createGeometry( )
 {
     GeometryGroup geometry_group = context->createGeometryGroup();
     std::string full_path = std::string( sutil::samplesDir() ) + "/data/wedding-band.obj";
 
-    // We use the base Mesh class rather than OptiXMesh, so we can set up our own materials.
+    // We use the base Mesh class rather than OptiXMesh, so we can customize materials below
+    // for different passes.
     Mesh mesh;
     MeshLoader loader( full_path );
     loader.scanMesh( mesh );
@@ -374,7 +375,7 @@ void createGeometry( )
     geometry->setBoundingBoxProgram ( bounds_program );
     geometry->setIntersectionProgram( intersection_program );
 
-
+    // Materials have different hit programs depending on pass.
     Program closest_hit1 = context->createProgramFromPTXFile( ptxPath( "ppm_rtpass.cu" ), "rtpass_closest_hit" );
     Program closest_hit2 = context->createProgramFromPTXFile( ptxPath( "ppm_ppass.cu" ), "ppass_closest_hit" );
     Program any_hit      = context->createProgramFromPTXFile( ptxPath( "ppm_gather.cu" ), "gather_any_hit" );
@@ -424,6 +425,7 @@ void createLight( PPMLight& light )
     const float3 default_color = make_float3( 0.8f, 0.88f, 0.97f );
     context["envmap"]->setTextureSampler( sutil::loadTexture( context, full_path, default_color) );
 }
+
 
 //------------------------------------------------------------------------------
 //
@@ -752,7 +754,7 @@ void launch_all( const sutil::Camera& camera, unsigned int photon_launch_dim, un
 
 }
 
-void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_launch_dim, Buffer photons_buffer, Buffer photon_map_buffer )
+void glfwRun( GLFWwindow* window, sutil::Camera& camera, PPMLight& light, unsigned int photon_launch_dim, Buffer photons_buffer, Buffer photon_map_buffer )
 {
     // Initialize GL state
     glMatrixMode(GL_PROJECTION);
@@ -764,6 +766,8 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_lau
 
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
+    float light_phi = LIGHT_PHI;
+    float light_theta = ( 0.5f*M_PIf - LIGHT_THETA );
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -796,6 +800,27 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_lau
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 2.0f        );
 
         sutil::displayFps( frame_count++ );
+
+        {
+            static const ImGuiWindowFlags window_flags = 
+                ImGuiWindowFlags_NoTitleBar |
+                ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_NoScrollbar;
+
+            ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
+            ImGui::Begin("controls", 0, window_flags );
+
+            if (ImGui::SliderAngle( "light rotation", &light_phi, 0.0f, 360.0f ) ||
+                ImGui::SliderAngle( "light elevation", &light_theta, 0.0f, 90.0f ) )  {
+                light.position  = 1000.0f * sphericalToCartesian( 0.5f*M_PIf-light_theta, light_phi );
+                light.direction = normalize( make_float3( 0.0f, 0.0f, 0.0f )  - light.position );
+                context["light"]->setUserData( sizeof(PPMLight), &light );
+                accumulation_frame = 0;
+            }
+
+            ImGui::End();
+        }
 
         // imgui pops
         ImGui::PopStyleVar( 3 );
@@ -984,7 +1009,7 @@ int main( int argc, char** argv )
         
         if ( out_file.empty() )
         {
-            glfwRun( window, camera, photon_launch_dim, photons_buffer, photon_map_buffer );
+            glfwRun( window, camera, light, photon_launch_dim, photons_buffer, photon_map_buffer );
         }
         else
         {
