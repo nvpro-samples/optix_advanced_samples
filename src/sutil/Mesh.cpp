@@ -556,6 +556,8 @@ void MeshLoader::Impl::loadMeshOBJ( Mesh& mesh )
   {
     MaterialParams mat_params;
 
+    mat_params.name   = m_materials[i].name;
+
     mat_params.Kd_map = m_materials[i].diffuse_texname.empty() ? "" :
                         directoryOfFilePath( m_filename ) + m_materials[i].diffuse_texname;
 
