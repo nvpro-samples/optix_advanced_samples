@@ -19,6 +19,8 @@
  * SUCH DAMAGES
  */
 
+#include <cstdlib>  // rand()
+
 template<class Elem> __inline void swap(Elem* list, int a, int b)
 {
   Elem temp = list[a];
