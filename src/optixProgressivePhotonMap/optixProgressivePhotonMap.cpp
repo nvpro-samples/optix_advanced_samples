@@ -89,6 +89,7 @@ enum SplitChoice {
 Context      context = 0;
 
 bool s_display_debug_buffer = false;
+bool s_print_timings = false;
 
 
 //------------------------------------------------------------------------------
@@ -689,20 +690,35 @@ void launch_all( const sutil::Camera& camera, unsigned int photon_launch_dim, un
     Buffer photons_buffer, Buffer photon_map_buffer )
 {
     if ( accumulation_frame == 1 ) {
+
+        if (s_print_timings) std::cerr << "Starting RT pass ... ";
+        double t0 = sutil::currentTime();
+
         // Trace viewing rays
         context->launch( rtpass, camera.width(), camera.height() );
+
+        double t1 = sutil::currentTime();
+        if (s_print_timings) std::cerr << "finished. " << t1 - t0 << std::endl;
+
         context["total_emitted"]->setFloat(  0.0f );
     }
 
     // Trace photons
     {
+        if (s_print_timings) std::cerr << "Starting photon pass   ... ";
+
         Buffer photon_rnd_seeds = context["photon_rnd_seeds"]->getBuffer();
         uint2* seeds = reinterpret_cast<uint2*>( photon_rnd_seeds->map() );
         for ( unsigned int i = 0; i < photon_launch_dim*photon_launch_dim; ++i ) {
             seeds[i] = random2u();
         }
         photon_rnd_seeds->unmap();
+        double t0 = sutil::currentTime();
+
         context->launch( ppass, photon_launch_dim, photon_launch_dim );
+
+        double t1 = sutil::currentTime();
+        if (s_print_timings) std::cerr << "finished. " << t1 - t0 << std::endl;
     }
 
     // By computing the total number of photons as an unsigned long long we avoid 32 bit
@@ -712,10 +728,27 @@ void launch_all( const sutil::Camera& camera, unsigned int photon_launch_dim, un
     context["total_emitted"]->setFloat( static_cast<float>((unsigned long long)accumulation_frame*photon_launch_dim*photon_launch_dim) );
 
     // Build KD tree
-    createPhotonMap( photons_buffer, photon_map_buffer );
+    {
+        if (s_print_timings) std::cerr << "Starting kd_tree build ... ";
+        double t0 = sutil::currentTime();
+
+        createPhotonMap( photons_buffer, photon_map_buffer );
+
+        double t1 = sutil::currentTime();
+        if (s_print_timings) std::cerr << "finished. " << t1 - t0 << std::endl;
+    }
+
 
     // Shade view rays by gathering photons
-    context->launch( gather, camera.width(), camera.height() );
+    {
+        if (s_print_timings) std::cerr << "Starting gather pass   ... ";
+        double t0 = sutil::currentTime();
+
+        context->launch( gather, camera.width(), camera.height() );
+
+        double t1 = sutil::currentTime();
+        if (s_print_timings) std::cerr << "finished. " << t1 - t0 << std::endl;
+    }
 
 }
 
@@ -804,7 +837,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_lau
 
           avg = avg / counter; 
           double t1 = sutil::currentTime( );
-          if (true) std::cerr << "Stat collection time ...           " << t1 - t0 << std::endl;
+          if ( s_print_timings ) std::cerr << "Stat collection time ...           " << t1 - t0 << std::endl;
           std::cerr << "(min, max, average):"
             << " loop iterations: ( "
             << minv.x << ", "
@@ -849,11 +882,12 @@ void printUsageAndExit( const std::string& argv0 )
     std::cerr << "\nUsage: " << argv0 << " [options]\n";
     std::cerr <<
         "App Options:\n"
-        "  -h | --help                  Print this usage message and exit.\n"
-        "  -f | --file <output_file>    Save image to file and exit.\n"
-        "  -n | --nopbo                 Disable GL interop for display buffer.\n"
-        "       --display-debug-buffer  Display debug buffer information to the shell.\n"
-        "       --photon-dim <n>        Width and height of photon launch grid. Default = " << PHOTON_LAUNCH_DIM << ".\n"
+        "  -h   | --help                  Print this usage message and exit.\n"
+        "  -f   | --file <output_file>    Save image to file and exit.\n"
+        "  -n   | --nopbo                 Disable GL interop for display buffer.\n"
+        "         --photon-dim <n>        Width and height of photon launch grid. Default = " << PHOTON_LAUNCH_DIM << ".\n"
+        "  -ddb | --display-debug-buffer  Display debug buffer information to the shell.\n"
+        "  -pt  | --print-timings         Print timing information.\n"
         "App Keystrokes:\n"
         "  q  Quit\n"
         "  s  Save image to '" << SAMPLE_NAME << ".png'\n"
@@ -891,9 +925,13 @@ int main( int argc, char** argv )
         {
             use_pbo = false;
         }
-        else if( arg == "--display-debug-buffer" )
+        else if( arg == "-ddb" || arg == "--display-debug-buffer" )
         {
             s_display_debug_buffer = true;
+        }
+        else if( arg == "-pt" || arg == "--print-timings" )
+        {
+            s_print_timings = true;
         }
         else if( arg == "--photon-dim" )
         {
