@@ -74,8 +74,6 @@ const unsigned int PHOTON_LAUNCH_DIM = 512u;
 const float LIGHT_THETA = 1.15f;
 const float LIGHT_PHI = 2.19f;
 
-const bool DEBUG_STATS = false;
-
 enum SplitChoice {
   RoundRobin,
   HighestVariance,
@@ -89,6 +87,8 @@ enum SplitChoice {
 //------------------------------------------------------------------------------
 
 Context      context = 0;
+
+bool s_display_debug_buffer = false;
 
 
 //------------------------------------------------------------------------------
@@ -206,7 +206,7 @@ void createContext( bool use_pbo, unsigned int photon_launch_dim, Buffer& photon
     context["alpha"]->setFloat( 0.7f );
     context["total_emitted"]->setFloat( 0.0f );
     context["frame_number"]->setFloat( 0.0f );
-    context["use_debug_buffer"]->setUint( DEBUG_STATS );
+    context["use_debug_buffer"]->setUint( s_display_debug_buffer );
 
     Buffer buffer = sutil::createOutputBuffer( context, RT_FORMAT_FLOAT4, WIDTH, HEIGHT, use_pbo );
     context["output_buffer"]->set( buffer );
@@ -555,7 +555,7 @@ void createPhotonMap( Buffer photons_buffer, Buffer photon_map_buffer )
       temp_photons[valid_photons++] = &photons_data[i];
     }
   }
-  if ( DEBUG_STATS ) {
+  if ( s_display_debug_buffer ) {
     std::cerr << " ** valid_photon/m_num_photons =  " 
               << valid_photons<<"/"<<num_photons
               <<" ("<<valid_photons/static_cast<float>(num_photons)<<")\n";
@@ -777,7 +777,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, unsigned int photon_lau
         const unsigned int buffer_height = camera.height();
 
         // Debug output
-        if( DEBUG_STATS ) {
+        if( s_display_debug_buffer ) {
           double t0 = sutil::currentTime( );
           Buffer debug_buffer = context["debug_buffer"]->getBuffer();
           float4* debug_data = reinterpret_cast<float4*>( debug_buffer->map() );
@@ -852,6 +852,7 @@ void printUsageAndExit( const std::string& argv0 )
         "  -h | --help                  Print this usage message and exit.\n"
         "  -f | --file <output_file>    Save image to file and exit.\n"
         "  -n | --nopbo                 Disable GL interop for display buffer.\n"
+        "       --display-debug-buffer  Display debug buffer information to the shell.\n"
         "       --photon-dim <n>        Width and height of photon launch grid. Default = " << PHOTON_LAUNCH_DIM << ".\n"
         "App Keystrokes:\n"
         "  q  Quit\n"
@@ -869,8 +870,6 @@ int main( int argc, char** argv )
     bool use_pbo = true;
     unsigned int photon_launch_dim = PHOTON_LAUNCH_DIM;
     std::string out_file;
-    std::vector<std::string> mesh_files;
-    std::vector<optix::Matrix4x4> mesh_xforms;
     for( int i=1; i<argc; ++i )
     {
         const std::string arg( argv[i] );
@@ -892,6 +891,10 @@ int main( int argc, char** argv )
         {
             use_pbo = false;
         }
+        else if( arg == "--display-debug-buffer" )
+        {
+            s_display_debug_buffer = true;
+        }
         else if( arg == "--photon-dim" )
         {
             if( i == argc-1 )
@@ -902,16 +905,12 @@ int main( int argc, char** argv )
             int tmp = atoi( argv[++i] );
             if (tmp > 0) photon_launch_dim = static_cast<unsigned int>(tmp);
         }
-        else if( arg[0] == '-' )
+        else
         {
             std::cerr << "Unknown option '" << arg << "'\n";
             printUsageAndExit( argv[0] );
         }
-        else {
-            // Interpret argument as a mesh file.
-            mesh_files.push_back( argv[i] );
-            mesh_xforms.push_back( optix::Matrix4x4::identity() );
-        }
+        
     }
 
     try
@@ -957,6 +956,8 @@ int main( int argc, char** argv )
                 context["frame_number"]->setFloat( static_cast<float>( frame++ ) );
                 launch_all( camera, photon_launch_dim, frame, photons_buffer, photon_map_buffer );
             }
+            // Note: the float4 output buffer is written in linear space without gamma correction, 
+            // so it won't match the interactive display.  Apply gamma in an image viewer.
             sutil::writeBufferToFile( out_file.c_str(), getOutputBuffer() );
             std::cerr << "Wrote " << out_file << std::endl;
             destroyContext();
