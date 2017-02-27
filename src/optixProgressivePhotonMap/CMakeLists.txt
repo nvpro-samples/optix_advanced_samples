@@ -31,17 +31,11 @@ include_directories(${SAMPLES_INCLUDE_DIR})
 # See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
 OPTIX_add_sample_executable( optixProgressivePhotonMap
     optixProgressivePhotonMap.cpp
-    glm.cpp
-    glm.h
     ppm.h
     select.h
-    PpmObjLoader.h
-    PpmObjLoader.cpp
     ppm_rtpass.cu
     ppm_ppass.cu
     ppm_gather.cu
-    parallelogram.cu
-    sphere.cu
     triangle_mesh.cu
 
     # common headers
