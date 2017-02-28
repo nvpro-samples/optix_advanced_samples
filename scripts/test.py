@@ -104,7 +104,7 @@ if len(sys.argv) > 3 :
 golddir = os.path.abspath( os.path.dirname( sys.argv[0] ) ) + '/'  # directory containing python script
 
 # Add new samples here and create a .gold.ppm image in the current directory.
-samples = [ 'optixGlass', 'optixOcean', 'optixVox' ]
+samples = [ 'optixGlass', 'optixOcean', 'optixVox', 'optixProgressivePhotonMap' ]
 
 pass_count = 0;
 fail_count = 0;
