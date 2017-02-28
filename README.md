@@ -14,4 +14,6 @@ OptiX prior to version 4.
 
 For requirements and build instructions see [INSTALL-LINUX.txt](./INSTALL-LINUX.txt) or [INSTALL-WIN.txt](./INSTALL-WIN.txt).
 
+Technical support is available on [NVIDIA's Developer Zone](https://devtalk.nvidia.com/default/board/90/), or 
+you can create a git issue.
 
