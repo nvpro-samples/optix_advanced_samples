@@ -27,6 +27,20 @@
  */
 
 
+// Intersection and bounds programs for custom box prims as the leaf nodes of a
+// BVH.  The boxes are represented as 4 bytes per box (VOX format).
+
+// Note: 
+// This is a compromise between intersection cost and memory cost: a BVH
+// built over triangles could be faster to intersect, but would use more memory
+// for the leaves (12 triangles per box), while an intersector that handled
+// larger chunks of boxes via 3d grid traversal would be slower but would
+// reduce the size of the BVH.  The compromise solution seems fine for a single
+// VOX file (max 256**3 boxes) or a handful of files.  The custom 3d grid
+// intersector could be interesting for very large scenes, e.g., Minecraft
+// files, that might have far more than 256**3 boxes.
+
+
 #include <optix.h>
 #include <optixu/optixu_math_namespace.h>
 #include <optixu/optixu_matrix_namespace.h>
@@ -36,7 +50,7 @@
 
 using namespace optix;
 
-// Compressed 8-bit indices as in VOX format.  We expand these into floating point coords during intersection.
+// 8-bit indices as in VOX format.  We expand these into floating point coords during intersection.
 rtBuffer< optix::uchar4 > box_buffer;
 
 rtBuffer< optix::uchar4 > palette_buffer;
