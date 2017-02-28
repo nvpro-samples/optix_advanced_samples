@@ -2,7 +2,10 @@
 OptiX Advanced Samples
 ======================
 
-![Teaser thumbnails](./optix_teaser.png)
+![Glass](./src/optixGlass/thumb.png)
+![Ocean](./src/optixOcean/thumb.png)
+![ProgressivePhotonMap](./src/optixProgressivePhotonMap/thumb.png)
+![Vox](./src/optixVox/thumb.png)
 
 This is a set of advanced samples for the [NVIDIA OptiX Ray Tracing Engine](https://developer.nvidia.com/optix).
 They assume some previous experience with OptiX, unlike the basic
