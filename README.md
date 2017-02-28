@@ -1,6 +1,8 @@
 
-optix_advanced_samples
-==================
+OptiX Advanced Samples
+======================
+
+![Teaser thumbnails](./optix_teaser.png)
 
 This is a set of advanced samples for the [NVIDIA OptiX Ray Tracing Engine](https://developer.nvidia.com/optix).
 They assume some previous experience with OptiX, unlike the basic
