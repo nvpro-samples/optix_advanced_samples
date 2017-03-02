@@ -460,28 +460,32 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
 
+            bool sun_changed = false;
             if (ImGui::SliderAngle( "sun rotation", &sun_phi, 0.0f, 360.0f ) ) {
                 sky.setSunPhi( sun_phi );
                 sky.setVariables( context );
                 sun.direction = sky.getSunDir();
-                memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
-                light_buffer->unmap();
-                accumulation_frame = 0;
+                sun_changed = true;
             }
             if (ImGui::SliderAngle( "sun elevation", &sun_theta, 0.0f, 90.0f ) ) {
                 sky.setSunTheta( 0.5f*M_PIf - sun_theta );
                 sky.setVariables( context );
                 sun.direction = sky.getSunDir();
                 sun.color = sky.sunColor() * SUN_SCALE;
-                memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
-                light_buffer->unmap();
-                accumulation_frame = 0;
+                sun_changed = true;
             }
             if (ImGui::SliderFloat( "sun radius", &sun_radius, 0.0f, 0.4f ) ) {
                 sun.radius = sun_radius;
+                sun_changed = true;
+            }
+            if ( sun_changed ) {
+                // recalculate frame for area sampling
+                optix::Onb onb( sun.direction );
+                sun.v0 = onb.m_tangent;
+                sun.v1 = onb.m_binormal;
                 memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
-                accumulation_frame = 0;
+                accumulation_frame = 0; 
             }
 
             ImGui::End();
