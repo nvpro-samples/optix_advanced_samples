@@ -85,7 +85,8 @@ RT_PROGRAM void closest_hit_radiance()
     const float3 light_center = fhp + light.direction;
     const float r1 = rnd( prd_radiance.seed );
     const float r2 = rnd( prd_radiance.seed );
-    const float3 jittered_pos = light_center + light.radius*(2.0f*r1 - 1.0f)*light.v0 + light.radius*(2.0f*r2 - 1.0f)*light.v1;
+    const float2 disk_sample = square_to_disk( make_float2( r1, r2 ) );
+    const float3 jittered_pos = light_center + light.radius*disk_sample.x*light.v0 + light.radius*disk_sample.y*light.v1;
     const float3 L = normalize( jittered_pos - fhp );
 
     const float NdotL = dot( ffnormal, L);
