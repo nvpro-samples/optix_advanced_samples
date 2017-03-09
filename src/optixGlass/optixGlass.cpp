@@ -367,6 +367,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
     float3 glass_transmittance = DEFAULT_TRANSMITTANCE;
+    float transmittance_log_scale = 0.0f;
     int max_depth = 10;
     bool draw_ground = true;
 
@@ -411,10 +412,14 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
-            if (ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.01f, 1.0f )) {
-                context["transmittance_constant"]->setFloat( glass_transmittance.x, glass_transmittance.y, glass_transmittance.z );
+            if (ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) ||
+                ImGui::SliderFloat( "transmittance log scale", (float*)(&transmittance_log_scale), -10, 0 ) )
+            {
+                const float3 t = expf(transmittance_log_scale) * glass_transmittance;
+                context["transmittance_constant"]->setFloat( t.x, t.y, t.z );
                 accumulation_frame = 0;
             }
+            
             if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
                 context["max_depth"]->setInt( max_depth );
                 accumulation_frame = 0;
