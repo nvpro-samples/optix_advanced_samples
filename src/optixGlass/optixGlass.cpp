@@ -412,9 +412,9 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
-            if ( ImGui::TreeNodeEx( "Controls", ImGuiTreeNodeFlags_DefaultOpen ) ) {
+            if ( ImGui::CollapsingHeader( "Controls", ImGuiTreeNodeFlags_DefaultOpen ) ) {
                 bool transmittance_changed = false;
-                if ( ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) )
+                if ( ImGui::SliderFloat3( "transmittance color", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) )
                 {
                     transmittance_changed = true;
                 }
@@ -442,7 +442,6 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
                     }
                     accumulation_frame = 0;
                 }
-                ImGui::TreePop();
             }
             ImGui::End();
         }
