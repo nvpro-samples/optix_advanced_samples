@@ -413,9 +413,16 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
             if ( ImGui::TreeNodeEx( "Controls", ImGuiTreeNodeFlags_DefaultOpen ) ) {
-                if (ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) ||
-                    ImGui::SliderFloat( "transmittance log scale", (float*)(&transmittance_log_scale), -10, 0 ) )
+                bool transmittance_changed = false;
+                if ( ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) )
                 {
+                    transmittance_changed = true;
+                }
+                if ( ImGui::SliderFloat( "transmittance log scale", (float*)(&transmittance_log_scale), -10, 0 ) )
+                {
+                    transmittance_changed = true;
+                }
+                if ( transmittance_changed ) {
                     const float3 t = expf(transmittance_log_scale) * glass_transmittance;
                     context["transmittance_constant"]->setFloat( t.x, t.y, t.z );
                     accumulation_frame = 0;
