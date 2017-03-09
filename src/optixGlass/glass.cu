@@ -43,7 +43,9 @@ rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
 rtDeclareVariable(float,        refraction_index, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
-rtDeclareVariable(float3,       transmittance_constant, , );
+
+// Transmittance at unit distance ( a color with each channel in [0,1] range)
+rtDeclareVariable(float3,       unit_transmittance, , );
 
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
@@ -80,9 +82,9 @@ RT_PROGRAM void closest_hit_radiance()
     } else {
         // Ray is exiting; apply Beer's Law.
         // This is derived in Shirley's Fundamentals of Graphics book.
-        // The "transmittance constant" is transmittance at unit distance and must
+        // The "unit_transmittance" is transmittance at unit distance and must
         // be between 0 and 1, so that log(...) is negative.
-        transmittance = optix::expf( logf(transmittance_constant) * t_hit );
+        transmittance = optix::expf( logf(unit_transmittance) * t_hit );
         eta         = 1.0f / refraction_index;
         cos_theta_i = -cos_theta_i;
         normal      = -normal;

@@ -175,7 +175,7 @@ Material createGlassMaterial( )
 
     // Set this on the global context so it's easy to change in the gui
     const float3 transmittance = DEFAULT_TRANSMITTANCE;
-    context["transmittance_constant"]->setFloat( transmittance.x, transmittance.y, transmittance.z );
+    context["unit_transmittance"]->setFloat( transmittance.x, transmittance.y, transmittance.z );
 
     return material;
 }
@@ -424,7 +424,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
                 }
                 if ( transmittance_changed ) {
                     const float3 t = expf(transmittance_log_scale) * glass_transmittance;
-                    context["transmittance_constant"]->setFloat( t.x, t.y, t.z );
+                    context["unit_transmittance"]->setFloat( t.x, t.y, t.z );
                     accumulation_frame = 0;
                 }
                 
