@@ -37,7 +37,7 @@ struct PerRayData_radiance
 
   // shading state
   bool done;
-  float3 attenuation;
+  float3 reflectance;
   float3 radiance;
   float3 origin;
   float3 direction;

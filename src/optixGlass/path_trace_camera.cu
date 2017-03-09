@@ -71,8 +71,8 @@ RT_PROGRAM void pinhole_camera()
 
   // These represent the current shading state and will be set by the closest-hit or miss program
 
-  // brdf attenuation from surface interaction
-  prd.attenuation = make_float3( 1.0f );
+  // attenuation (<= 1) from surface interaction.
+  prd.reflectance = make_float3( 1.0f );
 
   // light from a light source or miss program
   prd.radiance = make_float3( 0.0f );
@@ -90,12 +90,12 @@ RT_PROGRAM void pinhole_camera()
       optix::Ray ray(ray_origin, ray_direction, /*ray type*/ 0, scene_epsilon );
       rtTrace(top_object, ray, prd);
 
-      result += prd.attenuation * prd.radiance;
+      result += prd.reflectance * prd.radiance;
 
       if ( prd.done ) {
           break;
       } else if ( prd.depth >= max_depth ) {
-        result += prd.attenuation * cutoff_color;
+        result += prd.reflectance * cutoff_color;
         break;
       }
 

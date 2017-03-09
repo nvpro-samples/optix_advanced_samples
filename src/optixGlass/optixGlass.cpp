@@ -63,7 +63,7 @@ using namespace optix;
 const char* const SAMPLE_NAME = "optixGlass";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
-const float3 DEFAULT_EXTINCTION = make_float3( 0.1f, 0.63f, 0.3f );
+const float3 DEFAULT_TRANSMITTANCE = make_float3( 0.1f, 0.63f, 0.3f );
 
 //------------------------------------------------------------------------------
 //
@@ -174,8 +174,8 @@ Material createGlassMaterial( )
     material["reflection_color"   ]->setFloat( 0.99f, 0.99f, 0.99f );
 
     // Set this on the global context so it's easy to change in the gui
-    const float3 extinction = DEFAULT_EXTINCTION;
-    context["extinction_constant"]->setFloat( log(extinction.x), log(extinction.y), log(extinction.z) );
+    const float3 transmittance = DEFAULT_TRANSMITTANCE;
+    context["transmittance_constant"]->setFloat( transmittance.x, transmittance.y, transmittance.z );
 
     return material;
 }
@@ -366,7 +366,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
-    float3 glass_extinction = DEFAULT_EXTINCTION;
+    float3 glass_transmittance = DEFAULT_TRANSMITTANCE;
     int max_depth = 10;
     bool draw_ground = true;
 
@@ -411,8 +411,8 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
-            if (ImGui::SliderFloat3( "extinction", (float*)(&glass_extinction.x), 0.01f, 1.0f )) {
-                context["extinction_constant"]->setFloat( log(glass_extinction.x), log(glass_extinction.y), log(glass_extinction.z) );
+            if (ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.01f, 1.0f )) {
+                context["transmittance_constant"]->setFloat( glass_transmittance.x, glass_transmittance.y, glass_transmittance.z );
                 accumulation_frame = 0;
             }
             if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {

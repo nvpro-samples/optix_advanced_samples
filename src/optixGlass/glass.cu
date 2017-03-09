@@ -43,7 +43,7 @@ rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
 rtDeclareVariable(float,        refraction_index, , );
 rtDeclareVariable(float3,       refraction_color, , );
 rtDeclareVariable(float3,       reflection_color, , );
-rtDeclareVariable(float3,       extinction_constant, , );
+rtDeclareVariable(float3,       transmittance_constant, , );
 
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
@@ -59,6 +59,11 @@ static __device__ __inline__ float fresnel( float cos_theta_i, float cos_theta_t
     return 0.5f * ( rs*rs + rp*rp );
 }
 
+static __device__ __inline__ float3 logf( float3 v )
+{
+    return make_float3( logf(v.x), logf(v.y), logf(v.z) );
+}
+
 // -----------------------------------------------------------------------------
 
 RT_PROGRAM void closest_hit_radiance()
@@ -68,13 +73,16 @@ RT_PROGRAM void closest_hit_radiance()
     float cos_theta_i = optix::dot( w_out, normal );
 
     float eta;
-    float3 attenuation = make_float3( 1.0f );
+    float3 transmittance = make_float3( 1.0f );
     if( cos_theta_i > 0.0f ) {
         // Ray is entering 
         eta = refraction_index;  // Note: does not handle nested dielectrics
     } else {
-        // Ray is exiting.
-        attenuation = optix::expf(extinction_constant * t_hit);
+        // Ray is exiting; apply Beer's Law.
+        // This is derived in Shirley's Fundamentals of Graphics book.
+        // The "transmittance constant" is transmittance at unit distance and must
+        // be between 0 and 1, so that log(...) is negative.
+        transmittance = optix::expf( logf(transmittance_constant) * t_hit );
         eta         = 1.0f / refraction_index;
         cos_theta_i = -cos_theta_i;
         normal      = -normal;
@@ -96,14 +104,14 @@ RT_PROGRAM void closest_hit_radiance()
         const float3 fhp = rtTransformPoint(RT_OBJECT_TO_WORLD, front_hit_point);
         prd_radiance.origin = fhp;
         prd_radiance.direction = w_in; 
-        prd_radiance.attenuation *= reflection_color*attenuation;
+        prd_radiance.reflectance *= reflection_color*transmittance;
     } else {
         // Refract
         const float3 w_in = w_t;
         const float3 bhp = rtTransformPoint(RT_OBJECT_TO_WORLD, back_hit_point);
         prd_radiance.origin = bhp;
         prd_radiance.direction = w_in; 
-        prd_radiance.attenuation *= refraction_color*attenuation;
+        prd_radiance.reflectance *= refraction_color*transmittance;
     }
 
     // Note: we do not trace the ray for the next bounce here, we just set it up for

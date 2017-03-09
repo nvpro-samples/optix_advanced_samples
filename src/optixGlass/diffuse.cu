@@ -65,7 +65,7 @@ RT_PROGRAM void closest_hit_radiance()
     prd_radiance.direction = w_in;
     
     const float3 Kd = make_float3( tex2D( Kd_map, texcoord.x / Kd_map_scale.x, texcoord.y / Kd_map_scale.y ) );
-    prd_radiance.attenuation *= Kd;
+    prd_radiance.reflectance *= Kd;
 
 }
 
