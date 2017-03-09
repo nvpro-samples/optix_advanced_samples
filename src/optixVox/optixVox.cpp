@@ -67,9 +67,7 @@ using namespace optix;
 const char* const SAMPLE_NAME = "optixVox";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
-const float SUN_SCALE = 0.000001f;
-const float SUN_RADIUS = 0.05f;  // defined at unit distance from shading point
-const float SKY_SCALE = 0.1f;
+const float SUN_RADIUS = 0.004675;  // from Wikipedia
 
 //------------------------------------------------------------------------------
 //
@@ -165,7 +163,7 @@ void createLights( sutil::PreethamSunSky& sky, DirectionalLight& sun, Buffer& li
     sun.radius = SUN_RADIUS; // at unit distance along direction
     sun.v0 = onb.m_tangent;
     sun.v1 = onb.m_binormal; 
-    sun.color = sky.sunColor() * SUN_SCALE;
+    sun.color = sky.sunColor();
     sun.casts_shadow = 1;
     
     light_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, 1 );
@@ -174,7 +172,6 @@ void createLights( sutil::PreethamSunSky& sky, DirectionalLight& sun, Buffer& li
     light_buffer->unmap();
 
     context["light_buffer"]->set( light_buffer );
-    context["sky_scale"]->setFloat( SKY_SCALE );
 }
 
 
@@ -188,7 +185,8 @@ Material createDiffuseMaterial()
     material->setClosestHitProgram( 0, ch_program );
     material->setAnyHitProgram( 1, ah_program );
 
-    material["Kd"]->setFloat( make_float3( 0.7f, 0.7f, 0.7f ) );
+    // Use a somewhat realistic albedo with sun/sky lights, otherwise bounce is too strong.
+    material["Kd"]->setFloat( make_float3( 0.4f ) );
 
     return material;
 }
@@ -471,10 +469,9 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 sky.setSunTheta( 0.5f*M_PIf - sun_theta );
                 sky.setVariables( context );
                 sun.direction = sky.getSunDir();
-                sun.color = sky.sunColor() * SUN_SCALE;
                 sun_changed = true;
             }
-            if (ImGui::SliderFloat( "sun radius", &sun_radius, 0.0f, 0.4f ) ) {
+            if (ImGui::SliderFloat( "sun radius", &sun_radius, SUN_RADIUS, 0.4f ) ) {
                 sun.radius = sun_radius;
                 sun_changed = true;
             }
@@ -483,6 +480,9 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 optix::Onb onb( sun.direction );
                 sun.v0 = onb.m_tangent;
                 sun.v1 = onb.m_binormal;
+                // keep total sun energy constant if we increase area.
+                const float sqrt_sun_scale = SUN_RADIUS / sun_radius;
+                sun.color = sky.sunColor() * sqrt_sun_scale * sqrt_sun_scale;
                 memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
                 accumulation_frame = 0; 

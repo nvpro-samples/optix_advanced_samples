@@ -90,14 +90,11 @@ static __host__ __device__ __inline__ optix::float3 querySkyModel( bool CEL, con
 rtDeclareVariable(optix::Ray, ray, rtCurrentRay, );
 rtDeclareVariable(PerRayData_radiance, prd_radiance, rtPayload, );
 
-// Work around for lack of tone mapping
-rtDeclareVariable(float,    sky_scale, , )=1.0f;
 
 RT_PROGRAM void miss()
 {
     const bool show_sun = (prd_radiance.depth == 0);
     prd_radiance.radiance = ray.direction.y <= 0.0f ? make_float3( 0.0f ) : querySkyModel( show_sun, ray.direction );
-    prd_radiance.radiance *= sky_scale;
     prd_radiance.done = true;
 }
 

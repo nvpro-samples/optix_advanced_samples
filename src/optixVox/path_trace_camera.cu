@@ -50,6 +50,19 @@ rtDeclareVariable(unsigned int,  frame, , );
 rtDeclareVariable(uint2,         launch_index, rtLaunchIndex, );
 
 
+__inline__ __device__ float3 tonemap( const float3 in )
+{
+    // hard coded exposure for sun/sky
+    const float exposure = 1.0f/50.0f;
+    float3 x = exposure*in;
+
+    // "filmic" map from a GDC talk by John Hable.  This includes 1/gamma.
+    x = fmaxf( x - make_float3(0.004f), make_float3(0.0f) ); 
+    float3 ret = (x*(6.2f*x + make_float3(.5f)))/(x*(6.2f*x + make_float3(1.7f)) + make_float3(0.06f));
+
+    return ret;
+}
+
 RT_PROGRAM void pinhole_camera()
 {
 
@@ -112,7 +125,7 @@ RT_PROGRAM void pinhole_camera()
   } else {
     acc_val = make_float4( result, 0.f );
   }
-  output_buffer[launch_index] = make_color( make_float3( acc_val ) );
+  output_buffer[launch_index] = make_color( tonemap( make_float3( acc_val ) ) );
   accum_buffer[launch_index] = acc_val;
 }
 

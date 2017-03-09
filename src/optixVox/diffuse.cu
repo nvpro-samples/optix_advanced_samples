@@ -79,7 +79,8 @@ RT_PROGRAM void closest_hit_radiance()
     
     prd_radiance.attenuation *= Kd * make_float3( geometry_color );
 
-    // Add direct light radiance modulated by shadow ray
+    // Add direct light sample weighted by shadow term and 1/probability.
+    // The pdf for a directional area light is 1/solid_angle.
 
     const DirectionalLight& light = light_buffer[0];
     const float3 light_center = fhp + light.direction;
@@ -95,7 +96,9 @@ RT_PROGRAM void closest_hit_radiance()
         shadow_prd.attenuation = make_float3( 1.0f );
         optix::Ray shadow_ray ( fhp, L, /*shadow ray type*/ 1, 0.0f );
         rtTrace(top_object, shadow_ray, shadow_prd);
-        prd_radiance.radiance += NdotL * light.color * shadow_prd.attenuation;
+
+        const float solid_angle = light.radius*light.radius*M_PIf;
+        prd_radiance.radiance += NdotL * light.color * solid_angle * shadow_prd.attenuation;
     }
     
 
