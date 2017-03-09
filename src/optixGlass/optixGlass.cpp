@@ -412,27 +412,30 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
-            if (ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) ||
-                ImGui::SliderFloat( "transmittance log scale", (float*)(&transmittance_log_scale), -10, 0 ) )
-            {
-                const float3 t = expf(transmittance_log_scale) * glass_transmittance;
-                context["transmittance_constant"]->setFloat( t.x, t.y, t.z );
-                accumulation_frame = 0;
-            }
-            
-            if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
-                context["max_depth"]->setInt( max_depth );
-                accumulation_frame = 0;
-            }
-            if (ImGui::Checkbox( "draw ground plane", &draw_ground ) ) {
-                if ( draw_ground ) {
-                    context["top_object"]->set( top_group );
-                } else {
-                    // assume group has two children: mesh and ground
-                    GeometryGroup geomgroup = top_group->getChild<GeometryGroup>( 0 );
-                    context["top_object"]->set( geomgroup );
+            if ( ImGui::TreeNodeEx( "Controls", ImGuiTreeNodeFlags_DefaultOpen ) ) {
+                if (ImGui::SliderFloat3( "transmittance", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) ||
+                    ImGui::SliderFloat( "transmittance log scale", (float*)(&transmittance_log_scale), -10, 0 ) )
+                {
+                    const float3 t = expf(transmittance_log_scale) * glass_transmittance;
+                    context["transmittance_constant"]->setFloat( t.x, t.y, t.z );
+                    accumulation_frame = 0;
                 }
-                accumulation_frame = 0;
+                
+                if (ImGui::SliderInt( "max depth", &max_depth, 1, 10 )) {
+                    context["max_depth"]->setInt( max_depth );
+                    accumulation_frame = 0;
+                }
+                if (ImGui::Checkbox( "draw ground plane", &draw_ground ) ) {
+                    if ( draw_ground ) {
+                        context["top_object"]->set( top_group );
+                    } else {
+                        // assume group has two children: mesh and ground
+                        GeometryGroup geomgroup = top_group->getChild<GeometryGroup>( 0 );
+                        context["top_object"]->set( geomgroup );
+                    }
+                    accumulation_frame = 0;
+                }
+                ImGui::TreePop();
             }
             ImGui::End();
         }
