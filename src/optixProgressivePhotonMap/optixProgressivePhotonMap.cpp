@@ -811,8 +811,14 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, PPMLight& light, unsign
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
 
-            if (ImGui::SliderAngle( "light rotation", &light_phi, 0.0f, 360.0f ) ||
-                ImGui::SliderAngle( "light elevation", &light_theta, 0.0f, 90.0f ) )  {
+            bool light_changed = false;
+            if (ImGui::SliderAngle( "light rotation", &light_phi, 0.0f, 360.0f ) ) {
+                light_changed = true;
+            }
+            if (ImGui::SliderAngle( "light elevation", &light_theta, 0.0f, 90.0f ) )  {
+                light_changed = true;
+            }
+            if ( light_changed ) {
                 light.position  = 1000.0f * sphericalToCartesian( 0.5f*M_PIf-light_theta, light_phi );
                 light.direction = normalize( make_float3( 0.0f, 0.0f, 0.0f )  - light.position );
                 context["light"]->setUserData( sizeof(PPMLight), &light );
