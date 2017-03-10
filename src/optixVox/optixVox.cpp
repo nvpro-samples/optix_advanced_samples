@@ -67,7 +67,10 @@ using namespace optix;
 const char* const SAMPLE_NAME = "optixVox";
 const unsigned int WIDTH  = 768u;
 const unsigned int HEIGHT = 576u;
-const float SUN_RADIUS = 0.004675;  // from Wikipedia
+const float PHYSICAL_SUN_RADIUS = 0.004675f;  // from Wikipedia
+const float DEFAULT_SUN_RADIUS = 0.05f;  // Softer default to show off soft shadows
+const float DEFAULT_SUN_THETA = 1.1f;
+const float DEFAULT_SUN_PHI = 300.0f * M_PIf / 180.0f;
 
 //------------------------------------------------------------------------------
 //
@@ -152,18 +155,19 @@ void createLights( sutil::PreethamSunSky& sky, DirectionalLight& sun, Buffer& li
     const std::string ptx_path = ptxPath( "sunsky.cu" );
     context->setMissProgram( 0, context->createProgramFromPTXFile( ptx_path, "miss" ) );
 
-    sky.setSunTheta( 1.1f );  // 0: noon, pi/2: sunset
-    sky.setSunPhi( 0.5f );
+    sky.setSunTheta( DEFAULT_SUN_THETA );  // 0: noon, pi/2: sunset
+    sky.setSunPhi( DEFAULT_SUN_PHI );
     sky.setTurbidity( 2.2f );
     sky.setVariables( context );
 
     // Split out sun for direct sampling
     sun.direction = sky.getSunDir();
     optix::Onb onb( sun.direction );
-    sun.radius = SUN_RADIUS; // at unit distance along direction
+    sun.radius = DEFAULT_SUN_RADIUS;
     sun.v0 = onb.m_tangent;
     sun.v1 = onb.m_binormal; 
-    sun.color = sky.sunColor();
+    const float sqrt_sun_scale = PHYSICAL_SUN_RADIUS / sun.radius;
+    sun.color = sky.sunColor() * sqrt_sun_scale * sqrt_sun_scale;
     sun.casts_shadow = 1;
     
     light_buffer = context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_USER, 1 );
@@ -414,7 +418,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
     unsigned int accumulation_frame = 0;
     float sun_phi = sky.getSunPhi();
     float sun_theta = 0.5f*M_PIf - sky.getSunTheta();
-    float sun_radius = SUN_RADIUS;
+    float sun_radius = DEFAULT_SUN_RADIUS;
 
     // Expose user data for access in GLFW callback functions when the window is resized, etc.
     // This avoids having to make it global.
@@ -471,7 +475,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 sun.direction = sky.getSunDir();
                 sun_changed = true;
             }
-            if (ImGui::SliderFloat( "sun radius", &sun_radius, SUN_RADIUS, 0.4f ) ) {
+            if (ImGui::SliderFloat( "sun radius", &sun_radius, PHYSICAL_SUN_RADIUS, 0.4f ) ) {
                 sun.radius = sun_radius;
                 sun_changed = true;
             }
@@ -480,8 +484,8 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
                 optix::Onb onb( sun.direction );
                 sun.v0 = onb.m_tangent;
                 sun.v1 = onb.m_binormal;
-                // keep total sun energy constant if we increase area.
-                const float sqrt_sun_scale = SUN_RADIUS / sun_radius;
+                // keep total sun energy constant and realistic if we increase area.
+                const float sqrt_sun_scale = PHYSICAL_SUN_RADIUS / sun_radius;
                 sun.color = sky.sunColor() * sqrt_sun_scale * sqrt_sun_scale;
                 memcpy( light_buffer->map(), &sun, sizeof( DirectionalLight ) );
                 light_buffer->unmap();
