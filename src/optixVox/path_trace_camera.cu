@@ -53,7 +53,7 @@ rtDeclareVariable(uint2,         launch_index, rtLaunchIndex, );
 __inline__ __device__ float3 tonemap( const float3 in )
 {
     // hard coded exposure for sun/sky
-    const float exposure = 1.0f/50.0f;
+    const float exposure = 1.0f/30.0f;
     float3 x = exposure*in;
 
     // "filmic" map from a GDC talk by John Hable.  This includes 1/gamma.
