@@ -105,13 +105,13 @@ function(OptiX_report_error error_message required)
 endfunction()
 
 if(NOT optix_LIBRARY)
-  OptiX_report_error("optix library not found.  Please locate before proceeding." TRUE)
+  OptiX_report_error("OptiX library not found.  Please locate before proceeding, and set OptiX_INSTALL_DIR." TRUE)
 endif()
 if(NOT OptiX_INCLUDE)
   OptiX_report_error("OptiX headers (optix.h and friends) not found.  Please locate before proceeding." TRUE)
 endif()
 if(NOT optix_prime_LIBRARY)
-  OptiX_report_error("optix Prime library not found.  Please locate before proceeding." FALSE)
+  OptiX_report_error("OptiX Prime library not found.  Please locate before proceeding." FALSE)
 endif()
 
 # Macro for setting up dummy targets
