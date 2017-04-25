@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.2 Wayland - www.glfw.org
+// GLFW 3.3 Wayland - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2014 Jonas Ådahl <jadahl@gmail.com>
 //
@@ -105,7 +105,7 @@ static void checkScaleChange(_GLFWwindow* window)
     int monitorScale;
 
     // Check if we will be able to set the buffer scale or not.
-    if (_glfw.wl.wl_compositor_version < 3)
+    if (_glfw.wl.compositorVersion < 3)
         return;
 
     // Get the scale factor from the highest scale monitor.
@@ -220,34 +220,36 @@ static GLFWbool createSurface(_GLFWwindow* window,
 
 static GLFWbool createShellSurface(_GLFWwindow* window)
 {
-    window->wl.shell_surface = wl_shell_get_shell_surface(_glfw.wl.shell,
-                                                          window->wl.surface);
-    if (!window->wl.shell_surface)
+    window->wl.shellSurface = wl_shell_get_shell_surface(_glfw.wl.shell,
+                                                         window->wl.surface);
+    if (!window->wl.shellSurface)
         return GLFW_FALSE;
 
-    wl_shell_surface_add_listener(window->wl.shell_surface,
+    wl_shell_surface_add_listener(window->wl.shellSurface,
                                   &shellSurfaceListener,
                                   window);
 
     if (window->wl.title)
-        wl_shell_surface_set_title(window->wl.shell_surface, window->wl.title);
+        wl_shell_surface_set_title(window->wl.shellSurface, window->wl.title);
 
     if (window->monitor)
     {
         wl_shell_surface_set_fullscreen(
-            window->wl.shell_surface,
+            window->wl.shellSurface,
             WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
             0,
             window->monitor->wl.output);
     }
     else if (window->wl.maximized)
     {
-        wl_shell_surface_set_maximized(window->wl.shell_surface, NULL);
+        wl_shell_surface_set_maximized(window->wl.shellSurface, NULL);
     }
     else
     {
-        wl_shell_surface_set_toplevel(window->wl.shell_surface);
+        wl_shell_surface_set_toplevel(window->wl.shellSurface);
     }
+
+    wl_surface_commit(window->wl.surface);
 
     return GLFW_TRUE;
 }
@@ -393,10 +395,21 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
 
     if (ctxconfig->client != GLFW_NO_API)
     {
-        if (!_glfwInitEGL())
-            return GLFW_FALSE;
-        if (!_glfwCreateContextEGL(window, ctxconfig, fbconfig))
-            return GLFW_FALSE;
+        if (ctxconfig->source == GLFW_EGL_CONTEXT_API ||
+            ctxconfig->source == GLFW_NATIVE_CONTEXT_API)
+        {
+            if (!_glfwInitEGL())
+                return GLFW_FALSE;
+            if (!_glfwCreateContextEGL(window, ctxconfig, fbconfig))
+                return GLFW_FALSE;
+        }
+        else if (ctxconfig->source == GLFW_OSMESA_CONTEXT_API)
+        {
+            if (!_glfwInitOSMesa())
+                return GLFW_FALSE;
+            if (!_glfwCreateContextOSMesa(window, ctxconfig, fbconfig))
+                return GLFW_FALSE;
+        }
     }
 
     if (wndconfig->title)
@@ -411,7 +424,7 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
     }
     else
     {
-        window->wl.shell_surface = NULL;
+        window->wl.shellSurface = NULL;
         window->wl.visible = GLFW_FALSE;
     }
 
@@ -443,8 +456,8 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
     if (window->wl.native)
         wl_egl_window_destroy(window->wl.native);
 
-    if (window->wl.shell_surface)
-        wl_shell_surface_destroy(window->wl.shell_surface);
+    if (window->wl.shellSurface)
+        wl_shell_surface_destroy(window->wl.shellSurface);
 
     if (window->wl.surface)
         wl_surface_destroy(window->wl.surface);
@@ -458,8 +471,8 @@ void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char* title)
     if (window->wl.title)
         free(window->wl.title);
     window->wl.title = strdup(title);
-    if (window->wl.shell_surface)
-        wl_shell_surface_set_title(window->wl.shell_surface, title);
+    if (window->wl.shellSurface)
+        wl_shell_surface_set_title(window->wl.shellSurface, title);
 }
 
 void _glfwPlatformSetWindowIcon(_GLFWwindow* window,
@@ -546,8 +559,8 @@ void _glfwPlatformRestoreWindow(_GLFWwindow* window)
     // TODO: also do the same for iconified.
     if (window->monitor || window->wl.maximized)
     {
-        if (window->wl.shell_surface)
-            wl_shell_surface_set_toplevel(window->wl.shell_surface);
+        if (window->wl.shellSurface)
+            wl_shell_surface_set_toplevel(window->wl.shellSurface);
 
         window->wl.maximized = GLFW_FALSE;
     }
@@ -557,10 +570,10 @@ void _glfwPlatformMaximizeWindow(_GLFWwindow* window)
 {
     if (!window->monitor && !window->wl.maximized)
     {
-        if (window->wl.shell_surface)
+        if (window->wl.shellSurface)
         {
             // Let the compositor select the best output.
-            wl_shell_surface_set_maximized(window->wl.shell_surface, NULL);
+            wl_shell_surface_set_maximized(window->wl.shellSurface, NULL);
         }
         window->wl.maximized = GLFW_TRUE;
     }
@@ -570,7 +583,7 @@ void _glfwPlatformShowWindow(_GLFWwindow* window)
 {
     if (!window->monitor)
     {
-        if (!window->wl.shell_surface)
+        if (!window->wl.shellSurface)
             createShellSurface(window);
         window->wl.visible = GLFW_TRUE;
     }
@@ -580,10 +593,17 @@ void _glfwPlatformHideWindow(_GLFWwindow* window)
 {
     if (!window->monitor)
     {
-        if (window->wl.shell_surface)
-            wl_shell_surface_destroy(window->wl.shell_surface);
+        if (window->wl.shellSurface)
+            wl_shell_surface_destroy(window->wl.shellSurface);
         window->wl.visible = GLFW_FALSE;
     }
+}
+
+void _glfwPlatformRequestWindowAttention(_GLFWwindow* window)
+{
+    // TODO
+    _glfwInputError(GLFW_PLATFORM_ERROR,
+                    "Wayland: Window attention request not implemented yet");
 }
 
 void _glfwPlatformFocusWindow(_GLFWwindow* window)
@@ -601,14 +621,14 @@ void _glfwPlatformSetWindowMonitor(_GLFWwindow* window,
     if (monitor)
     {
         wl_shell_surface_set_fullscreen(
-            window->wl.shell_surface,
+            window->wl.shellSurface,
             WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
             refreshRate * 1000, // Convert Hz to mHz.
             monitor->wl.output);
     }
     else
     {
-        wl_shell_surface_set_toplevel(window->wl.shell_surface);
+        wl_shell_surface_set_toplevel(window->wl.shellSurface);
     }
     _glfwInputWindowMonitorChange(window, monitor);
 }
@@ -632,6 +652,27 @@ int _glfwPlatformWindowVisible(_GLFWwindow* window)
 int _glfwPlatformWindowMaximized(_GLFWwindow* window)
 {
     return window->wl.maximized;
+}
+
+void _glfwPlatformSetWindowResizable(_GLFWwindow* window, GLFWbool enabled)
+{
+    // TODO
+    _glfwInputError(GLFW_PLATFORM_ERROR,
+                    "Wayland: Window attribute setting not implemented yet");
+}
+
+void _glfwPlatformSetWindowDecorated(_GLFWwindow* window, GLFWbool enabled)
+{
+    // TODO
+    _glfwInputError(GLFW_PLATFORM_ERROR,
+                    "Wayland: Window attribute setting not implemented yet");
+}
+
+void _glfwPlatformSetWindowFloating(_GLFWwindow* window, GLFWbool enabled)
+{
+    // TODO
+    _glfwInputError(GLFW_PLATFORM_ERROR,
+                    "Wayland: Window attribute setting not implemented yet");
 }
 
 void _glfwPlatformPollEvents(void)
@@ -684,6 +725,11 @@ const char* _glfwPlatformGetKeyName(int key, int scancode)
 {
     // TODO
     return NULL;
+}
+
+int _glfwPlatformGetKeyScancode(int key)
+{
+    return _glfw.wl.scancodes[key];
 }
 
 int _glfwPlatformCreateCursor(_GLFWcursor* cursor,
@@ -960,21 +1006,13 @@ const char* _glfwPlatformGetClipboardString(_GLFWwindow* window)
     return NULL;
 }
 
-char** _glfwPlatformGetRequiredInstanceExtensions(uint32_t* count)
+void _glfwPlatformGetRequiredInstanceExtensions(char** extensions)
 {
-    char** extensions;
+    if (!_glfw.vk.KHR_surface || !_glfw.vk.KHR_wayland_surface)
+        return;
 
-    *count = 0;
-
-    if (!_glfw.vk.KHR_wayland_surface)
-        return NULL;
-
-    extensions = calloc(2, sizeof(char*));
-    extensions[0] = strdup("VK_KHR_surface");
-    extensions[1] = strdup("VK_KHR_wayland_surface");
-
-    *count = 2;
-    return extensions;
+    extensions[0] = "VK_KHR_surface";
+    extensions[1] = "VK_KHR_wayland_surface";
 }
 
 int _glfwPlatformGetPhysicalDevicePresentationSupport(VkInstance instance,

@@ -1,8 +1,8 @@
 //========================================================================
-// GLFW 3.2 - www.glfw.org
+// GLFW 3.3 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
-// Copyright (c) 2006-2016 Camilla Berglund <elmindreda@glfw.org>
+// Copyright (c) 2006-2016 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -30,6 +30,7 @@
 #include <assert.h>
 #include <float.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Internal key state used for sticky keys
 #define _GLFW_STICK 3
@@ -90,7 +91,6 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int action, int mods)
     if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST)
         return;
 
-    // Register mouse button action
     if (action == GLFW_RELEASE && window->stickyMouseButtons)
         window->mouseButtons[button] = _GLFW_STICK;
     else
@@ -124,10 +124,33 @@ void _glfwInputDrop(_GLFWwindow* window, int count, const char** paths)
         window->callbacks.drop((GLFWwindow*) window, count, paths);
 }
 
-void _glfwInputJoystickChange(int joy, int event)
+void _glfwInputJoystick(int jid, int event)
 {
     if (_glfw.callbacks.joystick)
-        _glfw.callbacks.joystick(joy, event);
+        _glfw.callbacks.joystick(jid, event);
+}
+
+void _glfwInputJoystickAxis(int jid, int axis, float value)
+{
+    _glfw.joysticks[jid].axes[axis] = value;
+}
+
+void _glfwInputJoystickButton(int jid, int button, char value)
+{
+    _glfw.joysticks[jid].buttons[button] = value;
+}
+
+void _glfwInputJoystickHat(int jid, int hat, char value)
+{
+    _GLFWjoystick* js = _glfw.joysticks + jid;
+    const int base = js->buttonCount + hat * 4;
+
+    js->buttons[base + 0] = (value & 0x01) ? GLFW_PRESS : GLFW_RELEASE;
+    js->buttons[base + 1] = (value & 0x02) ? GLFW_PRESS : GLFW_RELEASE;
+    js->buttons[base + 2] = (value & 0x04) ? GLFW_PRESS : GLFW_RELEASE;
+    js->buttons[base + 3] = (value & 0x08) ? GLFW_PRESS : GLFW_RELEASE;
+
+    js->hats[hat] = value;
 }
 
 
@@ -140,6 +163,45 @@ GLFWbool _glfwIsPrintable(int key)
     return (key >= GLFW_KEY_APOSTROPHE && key <= GLFW_KEY_WORLD_2) ||
            (key >= GLFW_KEY_KP_0 && key <= GLFW_KEY_KP_ADD) ||
            key == GLFW_KEY_KP_EQUAL;
+}
+
+_GLFWjoystick* _glfwAllocJoystick(const char* name,
+                                  int axisCount,
+                                  int buttonCount,
+                                  int hatCount)
+{
+    int jid;
+    _GLFWjoystick* js;
+
+    for (jid = 0;  jid <= GLFW_JOYSTICK_LAST;  jid++)
+    {
+        if (!_glfw.joysticks[jid].present)
+            break;
+    }
+
+    if (jid > GLFW_JOYSTICK_LAST)
+        return NULL;
+
+    js = _glfw.joysticks + jid;
+    js->present     = GLFW_TRUE;
+    js->name        = strdup(name);
+    js->axes        = calloc(axisCount, sizeof(float));
+    js->buttons     = calloc(buttonCount + hatCount * 4, 1);
+    js->hats        = calloc(hatCount, 1);
+    js->axisCount   = axisCount;
+    js->buttonCount = buttonCount;
+    js->hatCount    = hatCount;
+
+    return js;
+}
+
+void _glfwFreeJoystick(_GLFWjoystick* js)
+{
+    free(js->name);
+    free(js->axes);
+    free(js->buttons);
+    free(js->hats);
+    memset(js, 0, sizeof(_GLFWjoystick));
 }
 
 
@@ -254,6 +316,19 @@ GLFWAPI const char* glfwGetKeyName(int key, int scancode)
 {
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
     return _glfwPlatformGetKeyName(key, scancode);
+}
+
+GLFWAPI int glfwGetKeyScancode(int key)
+{
+    _GLFW_REQUIRE_INIT_OR_RETURN(-1);
+
+    if (key < GLFW_KEY_SPACE || key > GLFW_KEY_LAST)
+    {
+        _glfwInputError(GLFW_INVALID_ENUM, "Invalid key %i", key);
+        return GLFW_RELEASE;
+    }
+
+    return _glfwPlatformGetKeyScancode(key);
 }
 
 GLFWAPI int glfwGetKey(GLFWwindow* handle, int key)
@@ -540,62 +615,130 @@ GLFWAPI GLFWdropfun glfwSetDropCallback(GLFWwindow* handle, GLFWdropfun cbfun)
     return cbfun;
 }
 
-GLFWAPI int glfwJoystickPresent(int joy)
+GLFWAPI int glfwJoystickPresent(int jid)
 {
-    _GLFW_REQUIRE_INIT_OR_RETURN(0);
+    assert(jid >= GLFW_JOYSTICK_1);
+    assert(jid <= GLFW_JOYSTICK_LAST);
 
-    if (joy < 0 || joy > GLFW_JOYSTICK_LAST)
+    _GLFW_REQUIRE_INIT_OR_RETURN(GLFW_FALSE);
+
+    if (jid < 0 || jid > GLFW_JOYSTICK_LAST)
     {
-        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", joy);
-        return 0;
+        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", jid);
+        return GLFW_FALSE;
     }
 
-    return _glfwPlatformJoystickPresent(joy);
+    if (!_glfw.joysticks[jid].present)
+        return GLFW_FALSE;
+
+    return _glfwPlatformPollJoystick(jid, _GLFW_POLL_PRESENCE);
 }
 
-GLFWAPI const float* glfwGetJoystickAxes(int joy, int* count)
+GLFWAPI const float* glfwGetJoystickAxes(int jid, int* count)
 {
+    assert(jid >= GLFW_JOYSTICK_1);
+    assert(jid <= GLFW_JOYSTICK_LAST);
     assert(count != NULL);
+
     *count = 0;
 
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
 
-    if (joy < 0 || joy > GLFW_JOYSTICK_LAST)
+    if (jid < 0 || jid > GLFW_JOYSTICK_LAST)
     {
-        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", joy);
+        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", jid);
         return NULL;
     }
 
-    return _glfwPlatformGetJoystickAxes(joy, count);
+    if (!_glfw.joysticks[jid].present)
+        return NULL;
+
+    if (!_glfwPlatformPollJoystick(jid, _GLFW_POLL_AXES))
+        return NULL;
+
+    *count = _glfw.joysticks[jid].axisCount;
+    return _glfw.joysticks[jid].axes;
 }
 
-GLFWAPI const unsigned char* glfwGetJoystickButtons(int joy, int* count)
+GLFWAPI const unsigned char* glfwGetJoystickButtons(int jid, int* count)
 {
+    assert(jid >= GLFW_JOYSTICK_1);
+    assert(jid <= GLFW_JOYSTICK_LAST);
     assert(count != NULL);
+
     *count = 0;
 
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
 
-    if (joy < 0 || joy > GLFW_JOYSTICK_LAST)
+    if (jid < 0 || jid > GLFW_JOYSTICK_LAST)
     {
-        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", joy);
+        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", jid);
         return NULL;
     }
 
-    return _glfwPlatformGetJoystickButtons(joy, count);
+    if (!_glfw.joysticks[jid].present)
+        return NULL;
+
+    if (!_glfwPlatformPollJoystick(jid, _GLFW_POLL_BUTTONS))
+        return NULL;
+
+    if (_glfw.hints.init.hatButtons)
+    {
+        *count = _glfw.joysticks[jid].buttonCount +
+                 _glfw.joysticks[jid].hatCount * 4;
+    }
+    else
+        *count = _glfw.joysticks[jid].buttonCount;
+
+    return _glfw.joysticks[jid].buttons;
 }
 
-GLFWAPI const char* glfwGetJoystickName(int joy)
+GLFWAPI const unsigned char* glfwGetJoystickHats(int jid, int* count)
 {
+    assert(jid >= GLFW_JOYSTICK_1);
+    assert(jid <= GLFW_JOYSTICK_LAST);
+    assert(count != NULL);
+
+    *count = 0;
+
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
 
-    if (joy < 0 || joy > GLFW_JOYSTICK_LAST)
+    if (jid < 0 || jid > GLFW_JOYSTICK_LAST)
     {
-        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", joy);
+        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", jid);
         return NULL;
     }
 
-    return _glfwPlatformGetJoystickName(joy);
+    if (!_glfw.joysticks[jid].present)
+        return NULL;
+
+    if (!_glfwPlatformPollJoystick(jid, _GLFW_POLL_BUTTONS))
+        return NULL;
+
+    *count = _glfw.joysticks[jid].hatCount;
+    return _glfw.joysticks[jid].hats;
+}
+
+GLFWAPI const char* glfwGetJoystickName(int jid)
+{
+    assert(jid >= GLFW_JOYSTICK_1);
+    assert(jid <= GLFW_JOYSTICK_LAST);
+
+    _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
+
+    if (jid < 0 || jid > GLFW_JOYSTICK_LAST)
+    {
+        _glfwInputError(GLFW_INVALID_ENUM, "Invalid joystick %i", jid);
+        return NULL;
+    }
+
+    if (!_glfw.joysticks[jid].present)
+        return NULL;
+
+    if (!_glfwPlatformPollJoystick(jid, _GLFW_POLL_PRESENCE))
+        return NULL;
+
+    return _glfw.joysticks[jid].name;
 }
 
 GLFWAPI GLFWjoystickfun glfwSetJoystickCallback(GLFWjoystickfun cbfun)
@@ -627,7 +770,7 @@ GLFWAPI const char* glfwGetClipboardString(GLFWwindow* handle)
 GLFWAPI double glfwGetTime(void)
 {
     _GLFW_REQUIRE_INIT_OR_RETURN(0.0);
-    return (double) (_glfwPlatformGetTimerValue() - _glfw.timerOffset) /
+    return (double) (_glfwPlatformGetTimerValue() - _glfw.timer.offset) /
         _glfwPlatformGetTimerFrequency();
 }
 
@@ -641,7 +784,7 @@ GLFWAPI void glfwSetTime(double time)
         return;
     }
 
-    _glfw.timerOffset = _glfwPlatformGetTimerValue() -
+    _glfw.timer.offset = _glfwPlatformGetTimerValue() -
         (uint64_t) (time * _glfwPlatformGetTimerFrequency());
 }
 

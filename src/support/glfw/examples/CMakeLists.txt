@@ -1,9 +1,9 @@
 
 link_libraries(glfw)
 
-include_directories(${glfw_INCLUDE_DIRS})
+include_directories(${glfw_INCLUDE_DIRS} "${GLFW_SOURCE_DIR}/deps")
 
-if (BUILD_SHARED_LIBS)
+if (MATH_LIBRARY)
     link_libraries("${MATH_LIBRARY}")
 endif()
 
@@ -11,14 +11,16 @@ if (MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
-include_directories("${GLFW_SOURCE_DIR}/deps")
+if (GLFW_USE_OSMESA)
+    add_definitions(-DUSE_NATIVE_OSMESA)
+endif()
 
 if (WIN32)
     set(ICON glfw.rc)
 elseif (APPLE)
     set(ICON glfw.icns)
     set_source_files_properties(glfw.icns PROPERTIES
-        MAXOSX_PACKAGE_LOCATION "Resources")
+        MACOSX_PACKAGE_LOCATION "Resources")
 endif()
 
 set(GLAD "${GLFW_SOURCE_DIR}/deps/glad/glad.h"
@@ -31,16 +33,22 @@ set(TINYCTHREAD "${GLFW_SOURCE_DIR}/deps/tinycthread.h"
 add_executable(boing WIN32 MACOSX_BUNDLE boing.c ${ICON} ${GLAD})
 add_executable(gears WIN32 MACOSX_BUNDLE gears.c ${ICON} ${GLAD})
 add_executable(heightmap WIN32 MACOSX_BUNDLE heightmap.c ${ICON} ${GLAD})
+add_executable(offscreen offscreen.c ${ICON} ${GLAD})
 add_executable(particles WIN32 MACOSX_BUNDLE particles.c ${ICON} ${TINYCTHREAD} ${GETOPT} ${GLAD})
 add_executable(simple WIN32 MACOSX_BUNDLE simple.c ${ICON} ${GLAD})
 add_executable(splitview WIN32 MACOSX_BUNDLE splitview.c ${ICON} ${GLAD})
 add_executable(wave WIN32 MACOSX_BUNDLE wave.c ${ICON} ${GLAD})
 
-target_link_libraries(particles "${CMAKE_THREAD_LIBS_INIT}" "${RT_LIBRARY}")
+target_link_libraries(particles "${CMAKE_THREAD_LIBS_INIT}")
+if (RT_LIBRARY)
+    target_link_libraries(particles "${RT_LIBRARY}")
+endif()
 
 set(WINDOWS_BINARIES boing gears heightmap particles simple splitview wave)
+set(CONSOLE_BINARIES offscreen)
 
-set_target_properties(${WINDOWS_BINARIES} PROPERTIES FOLDER "GLFW3/Examples")
+set_target_properties(${WINDOWS_BINARIES} ${CONSOLE_BINARIES} PROPERTIES
+                      FOLDER "GLFW3/Examples")
 
 if (MSVC)
     # Tell MSVC to use main instead of WinMain for Windows subsystem executables

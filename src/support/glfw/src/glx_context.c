@@ -1,8 +1,8 @@
 //========================================================================
-// GLFW 3.2 GLX - www.glfw.org
+// GLFW 3.3 GLX - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
-// Copyright (c) 2006-2016 Camilla Berglund <elmindreda@glfw.org>
+// Copyright (c) 2006-2016 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -59,7 +59,7 @@ static GLFWbool chooseGLXFBConfig(const _GLFWfbconfig* desired, GLXFBConfig* res
     // HACK: This is a (hopefully temporary) workaround for Chromium
     //       (VirtualBox GL) not setting the window bit on any GLXFBConfigs
     vendor = glXGetClientString(_glfw.x11.display, GLX_VENDOR);
-    if (strcmp(vendor, "Chromium") == 0)
+    if (vendor && strcmp(vendor, "Chromium") == 0)
         trustWindowBit = GLFW_FALSE;
 
     nativeConfigs =
@@ -165,7 +165,7 @@ static void makeContextCurrentGLX(_GLFWwindow* window)
         }
     }
 
-    _glfwPlatformSetCurrentContext(window);
+    _glfwPlatformSetTls(&_glfw.context, window);
 }
 
 static void swapBuffersGLX(_GLFWwindow* window)
@@ -175,7 +175,7 @@ static void swapBuffersGLX(_GLFWwindow* window)
 
 static void swapIntervalGLX(int interval)
 {
-    _GLFWwindow* window = _glfwPlatformGetCurrentContext();
+    _GLFWwindow* window = _glfwPlatformGetTls(&_glfw.context);
 
     if (_glfw.glx.EXT_swap_control)
     {
