@@ -1,8 +1,8 @@
 //========================================================================
-// GLFW 3.2 POSIX - www.glfw.org
+// GLFW 3.3 POSIX - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
-// Copyright (c) 2006-2016 Camilla Berglund <elmindreda@glfw.org>
+// Copyright (c) 2006-2016 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -27,42 +27,50 @@
 
 #include "internal.h"
 
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-GLFWbool _glfwInitThreadLocalStoragePOSIX(void)
-{
-    if (pthread_key_create(&_glfw.posix_tls.context, NULL) != 0)
-    {
-        _glfwInputError(GLFW_PLATFORM_ERROR,
-                        "POSIX: Failed to create context TLS");
-        return GLFW_FALSE;
-    }
-
-    _glfw.posix_tls.allocated = GLFW_TRUE;
-    return GLFW_TRUE;
-}
-
-void _glfwTerminateThreadLocalStoragePOSIX(void)
-{
-    if (_glfw.posix_tls.allocated)
-        pthread_key_delete(_glfw.posix_tls.context);
-}
+#include <assert.h>
+#include <string.h>
 
 
 //////////////////////////////////////////////////////////////////////////
 //////                       GLFW platform API                      //////
 //////////////////////////////////////////////////////////////////////////
 
-void _glfwPlatformSetCurrentContext(_GLFWwindow* context)
+GLFWbool _glfwPlatformCreateTls(_GLFWtls* tls)
 {
-    pthread_setspecific(_glfw.posix_tls.context, context);
+    assert(tls->posix.allocated == GLFW_FALSE);
+
+    if (pthread_key_create(&tls->posix.key, NULL) != 0)
+    {
+        _glfwInputError(GLFW_PLATFORM_ERROR,
+                        "POSIX: Failed to create context TLS");
+        return GLFW_FALSE;
+    }
+
+    tls->posix.allocated = GLFW_TRUE;
+    return GLFW_TRUE;
 }
 
-_GLFWwindow* _glfwPlatformGetCurrentContext(void)
+void _glfwPlatformDestroyTls(_GLFWtls* tls)
 {
-    return pthread_getspecific(_glfw.posix_tls.context);
+    if (tls->posix.allocated)
+        pthread_key_delete(tls->posix.key);
+    memset(tls, 0, sizeof(_GLFWtls));
+}
+
+void* _glfwPlatformGetTls(_GLFWtls* tls)
+{
+    assert(tls->posix.allocated == GLFW_TRUE);
+    return pthread_getspecific(tls->posix.key);
+}
+
+void _glfwPlatformSetTls(_GLFWtls* tls, void* value)
+{
+    assert(tls->posix.allocated == GLFW_TRUE);
+    pthread_setspecific(tls->posix.key, value);
+}
+
+GLFWbool _glfwPlatformIsValidTls(_GLFWtls* tls)
+{
+    return tls->posix.allocated;
 }
 

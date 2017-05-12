@@ -1,8 +1,8 @@
-set(CMAKE_LEGACY_CYGWIN_WIN32 OFF)
+cmake_minimum_required(VERSION 2.8.12)
 
 project(GLFW C)
 
-cmake_minimum_required(VERSION 2.8.12)
+set(CMAKE_LEGACY_CYGWIN_WIN32 OFF)
 
 if (NOT CMAKE_VERSION VERSION_LESS "3.0")
     # Until all major package systems have moved to CMake 3,
@@ -10,21 +10,21 @@ if (NOT CMAKE_VERSION VERSION_LESS "3.0")
     cmake_policy(SET CMP0042 OLD)
 endif()
 
+if (NOT CMAKE_VERSION VERSION_LESS "3.1")
+    cmake_policy(SET CMP0054 NEW)
+endif()
+
 set(GLFW_VERSION_MAJOR "3")
-set(GLFW_VERSION_MINOR "2")
-set(GLFW_VERSION_PATCH "1")
+set(GLFW_VERSION_MINOR "3")
+set(GLFW_VERSION_PATCH "0")
 set(GLFW_VERSION_EXTRA "")
 set(GLFW_VERSION "${GLFW_VERSION_MAJOR}.${GLFW_VERSION_MINOR}")
 set(GLFW_VERSION_FULL "${GLFW_VERSION}.${GLFW_VERSION_PATCH}${GLFW_VERSION_EXTRA}")
-
-# override: Hide this
-#set(LIB_SUFFIX "" CACHE STRING "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
-set(LIB_SUFFIX "")
+set(LIB_SUFFIX "" CACHE STRING "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-# override: disable this and let the parent CMakeLists file configure it globally
-# option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(GLFW_BUILD_EXAMPLES "Build the GLFW example programs" ON)
 option(GLFW_BUILD_TESTS "Build the GLFW test programs" ON)
 option(GLFW_BUILD_DOCS "Build the GLFW documentation" ON)
@@ -32,14 +32,12 @@ option(GLFW_INSTALL "Generate installation target" ON)
 option(GLFW_VULKAN_STATIC "Use the Vulkan loader statically linked into application" OFF)
 option(GLFW_DOCUMENT_INTERNALS "Include internals in documentation" OFF)
 
-if (WIN32)
-    option(GLFW_USE_HYBRID_HPG "Force use of high-performance GPU on hybrid systems" OFF)
+if (UNIX)
+    option(GLFW_USE_OSMESA "Use OSMesa for offscreen context creation" OFF)
 endif()
 
-if (APPLE)
-    option(GLFW_USE_CHDIR "Make glfwInit chdir to Contents/Resources" ON)
-    option(GLFW_USE_MENUBAR "Populate the menu bar on first window creation" ON)
-    option(GLFW_USE_RETINA "Use the full resolution of Retina displays" ON)
+if (WIN32)
+    option(GLFW_USE_HYBRID_HPG "Force use of high-performance GPU on hybrid systems" OFF)
 endif()
 
 if (UNIX AND NOT APPLE)
@@ -47,10 +45,9 @@ if (UNIX AND NOT APPLE)
     option(GLFW_USE_MIR     "Use Mir for window creation" OFF)
 endif()
 
-# override: use the global runtime flags
-#if (MSVC)
-#    option(USE_MSVC_RUNTIME_LIBRARY_DLL "Use MSVC runtime library DLL" ON)
-#endif()
+if (MSVC)
+    option(USE_MSVC_RUNTIME_LIBRARY_DLL "Use MSVC runtime library DLL" ON)
+endif()
 
 if (BUILD_SHARED_LIBS)
     set(_GLFW_BUILD_DLL 1)
@@ -70,7 +67,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${GLFW_SOURCE_DIR}/CMake/modules")
 
 find_package(Threads REQUIRED)
-find_package(Vulkan QUIET)
+find_package(Vulkan)
 
 if (GLFW_BUILD_DOCS)
     set(DOXYGEN_SKIP_DOT TRUE)
@@ -80,24 +77,35 @@ endif()
 #--------------------------------------------------------------------
 # Set compiler specific flags
 #--------------------------------------------------------------------
-#if (MSVC)
-#    if (NOT USE_MSVC_RUNTIME_LIBRARY_DLL)
-#        foreach (flag CMAKE_C_FLAGS
-#                      CMAKE_C_FLAGS_DEBUG
-#                      CMAKE_C_FLAGS_RELEASE
-#                      CMAKE_C_FLAGS_MINSIZEREL
-#                      CMAKE_C_FLAGS_RELWITHDEBINFO)
-#
-#            if (${flag} MATCHES "/MD")
-#                string(REGEX REPLACE "/MD" "/MT" ${flag} "${${flag}}")
-#            endif()
-#            if (${flag} MATCHES "/MDd")
-#                string(REGEX REPLACE "/MDd" "/MTd" ${flag} "${${flag}}")
-#            endif()
-#
-#        endforeach()
-#    endif()
-#endif()
+if (MSVC)
+    if (MSVC90)
+        # Workaround for VS 2008 not shipping with the DirectX 9 SDK
+        include(CheckIncludeFile)
+        check_include_file(dinput.h DINPUT_H_FOUND)
+        if (NOT DINPUT_H_FOUND)
+            message(FATAL_ERROR "DirectX 9 SDK not found")
+        endif()
+        # Workaround for VS 2008 not shipping with stdint.h
+        list(APPEND glfw_INCLUDE_DIRS "${GLFW_SOURCE_DIR}/deps/vs2008")
+    endif()
+
+    if (NOT USE_MSVC_RUNTIME_LIBRARY_DLL)
+        foreach (flag CMAKE_C_FLAGS
+                      CMAKE_C_FLAGS_DEBUG
+                      CMAKE_C_FLAGS_RELEASE
+                      CMAKE_C_FLAGS_MINSIZEREL
+                      CMAKE_C_FLAGS_RELWITHDEBINFO)
+
+            if (${flag} MATCHES "/MD")
+                string(REGEX REPLACE "/MD" "/MT" ${flag} "${${flag}}")
+            endif()
+            if (${flag} MATCHES "/MDd")
+                string(REGEX REPLACE "/MDd" "/MTd" ${flag} "${${flag}}")
+            endif()
+
+        endforeach()
+    endif()
+endif()
 
 if (MINGW)
     # Workaround for legacy MinGW not providing XInput and DirectInput
@@ -134,26 +142,36 @@ if (MINGW)
     endif()
 endif()
 
+if (APPLE)
+    # Dependencies required by the MoltenVK static library
+    set(GLFW_VULKAN_DEPS
+        "-lc++"
+        "-framework Cocoa"
+        "-framework Metal"
+        "-framework QuartzCore")
+endif()
+
 #--------------------------------------------------------------------
 # Detect and select backend APIs
 #--------------------------------------------------------------------
-if (WIN32)
+if (GLFW_USE_WAYLAND)
+    set(_GLFW_WAYLAND 1)
+    message(STATUS "Using Wayland for window creation")
+elseif (GLFW_USE_MIR)
+    set(_GLFW_MIR 1)
+    message(STATUS "Using Mir for window creation")
+elseif (GLFW_USE_OSMESA)
+    set(_GLFW_OSMESA 1)
+    message(STATUS "Using OSMesa for headless context creation")
+elseif (WIN32)
     set(_GLFW_WIN32 1)
     message(STATUS "Using Win32 for window creation")
 elseif (APPLE)
     set(_GLFW_COCOA 1)
     message(STATUS "Using Cocoa for window creation")
 elseif (UNIX)
-    if (GLFW_USE_WAYLAND)
-        set(_GLFW_WAYLAND 1)
-        message(STATUS "Using Wayland for window creation")
-    elseif (GLFW_USE_MIR)
-        set(_GLFW_MIR 1)
-        message(STATUS "Using Mir for window creation")
-    else()
-        set(_GLFW_X11 1)
-        message(STATUS "Using X11 for window creation")
-    endif()
+    set(_GLFW_X11 1)
+    message(STATUS "Using X11 for window creation")
 else()
     message(FATAL_ERROR "No supported platform was detected")
 endif()
@@ -163,7 +181,10 @@ endif()
 #--------------------------------------------------------------------
 if (GLFW_VULKAN_STATIC)
     if (VULKAN_FOUND AND VULKAN_STATIC_LIBRARY)
-        list(APPEND glfw_LIBRARIES ${VULKAN_STATIC_LIBRARY})
+        list(APPEND glfw_LIBRARIES ${VULKAN_STATIC_LIBRARY} ${GLFW_VULKAN_DEPS})
+        if (BUILD_SHARED_LIBS)
+            message(WARNING "Linking Vulkan loader static library into GLFW")
+        endif()
     else()
         if (BUILD_SHARED_LIBS OR GLFW_BUILD_EXAMPLES OR GLFW_BUILD_TESTS)
             message(FATAL_ERROR "Vulkan loader static library not found")
@@ -240,21 +261,6 @@ if (_GLFW_X11)
     list(APPEND glfw_LIBRARIES "${X11_Xinerama_LIB}")
     list(APPEND glfw_PKG_DEPS "xinerama")
 
-    # Check for Xf86VidMode (fallback gamma control)
-    if (X11_xf86vmode_FOUND)
-        list(APPEND glfw_INCLUDE_DIRS "${X11_xf86vmode_INCLUDE_PATH}")
-        list(APPEND glfw_PKG_DEPS "xxf86vm")
-
-        if (X11_Xxf86vm_LIB)
-            list(APPEND glfw_LIBRARIES "${X11_Xxf86vm_LIB}")
-        else()
-            # Backwards compatibility (see CMake bug 0006976)
-            list(APPEND glfw_LIBRARIES Xxf86vm)
-        endif()
-
-        set(_GLFW_HAS_XF86VM TRUE)
-    endif()
-
     # Check for Xkb (X keyboard extension)
     if (NOT X11_Xkb_FOUND)
         message(FATAL_ERROR "The X keyboard extension headers were not found")
@@ -302,7 +308,7 @@ if (_GLFW_MIR)
     find_package(Mir REQUIRED)
     list(APPEND glfw_PKG_DEPS "mirclient")
 
-    list(APPEND glfw_INCLUDE_DIRS "${MIR_INCLUDE_DIR}")
+    list(APPEND glfw_INCLUDE_DIRS "${MIR_INCLUDE_DIRS}")
     list(APPEND glfw_LIBRARIES "${MIR_LIBRARIES}" "${CMAKE_THREAD_LIBS_INIT}")
 
     find_package(XKBCommon REQUIRED)
@@ -312,35 +318,23 @@ if (_GLFW_MIR)
 endif()
 
 #--------------------------------------------------------------------
+# Use OSMesa for offscreen context creation
+#--------------------------------------------------------------------
+if (_GLFW_OSMESA)
+    find_package(OSMesa REQUIRED)
+    list(APPEND glfw_LIBRARIES "${CMAKE_THREAD_LIBS_INIT}")
+endif()
+
+#--------------------------------------------------------------------
 # Use Cocoa for window creation and NSOpenGL for context creation
 #--------------------------------------------------------------------
 if (_GLFW_COCOA)
 
-    if (GLFW_USE_MENUBAR)
-        set(_GLFW_USE_MENUBAR 1)
-    endif()
-
-    if (GLFW_USE_CHDIR)
-        set(_GLFW_USE_CHDIR 1)
-    endif()
-
-    if (GLFW_USE_RETINA)
-        set(_GLFW_USE_RETINA 1)
-    endif()
-
-    # Set up library and include paths
-    find_library(COCOA_FRAMEWORK Cocoa)
-    find_library(IOKIT_FRAMEWORK IOKit)
-    find_library(CORE_FOUNDATION_FRAMEWORK CoreFoundation)
-    find_library(CORE_VIDEO_FRAMEWORK CoreVideo)
-    mark_as_advanced(COCOA_FRAMEWORK
-                     IOKIT_FRAMEWORK
-                     CORE_FOUNDATION_FRAMEWORK
-                     CORE_VIDEO_FRAMEWORK)
-    list(APPEND glfw_LIBRARIES "${COCOA_FRAMEWORK}"
-                               "${IOKIT_FRAMEWORK}"
-                               "${CORE_FOUNDATION_FRAMEWORK}"
-                               "${CORE_VIDEO_FRAMEWORK}")
+    list(APPEND glfw_LIBRARIES
+        "-framework Cocoa"
+        "-framework IOKit"
+        "-framework CoreFoundation"
+        "-framework CoreVideo")
 
     set(glfw_PKG_DEPS "")
     set(glfw_PKG_LIBS "-framework Cocoa -framework IOKit -framework CoreFoundation -framework CoreVideo")

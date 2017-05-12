@@ -1,8 +1,8 @@
 //========================================================================
-// GLFW 3.2 Win32 - www.glfw.org
+// GLFW 3.3 Win32 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
-// Copyright (c) 2006-2016 Camilla Berglund <elmindreda@glfw.org>
+// Copyright (c) 2006-2016 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -27,43 +27,50 @@
 
 #include "internal.h"
 
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-GLFWbool _glfwInitThreadLocalStorageWin32(void)
-{
-    _glfw.win32_tls.context = TlsAlloc();
-    if (_glfw.win32_tls.context == TLS_OUT_OF_INDEXES)
-    {
-        _glfwInputError(GLFW_PLATFORM_ERROR,
-                        "Win32: Failed to allocate TLS index");
-        return GLFW_FALSE;
-    }
-
-    _glfw.win32_tls.allocated = GLFW_TRUE;
-    return GLFW_TRUE;
-}
-
-void _glfwTerminateThreadLocalStorageWin32(void)
-{
-    if (_glfw.win32_tls.allocated)
-        TlsFree(_glfw.win32_tls.context);
-}
+#include <assert.h>
 
 
 //////////////////////////////////////////////////////////////////////////
 //////                       GLFW platform API                      //////
 //////////////////////////////////////////////////////////////////////////
 
-void _glfwPlatformSetCurrentContext(_GLFWwindow* context)
+GLFWbool _glfwPlatformCreateTls(_GLFWtls* tls)
 {
-    TlsSetValue(_glfw.win32_tls.context, context);
+    assert(tls->win32.allocated == GLFW_FALSE);
+
+    tls->win32.index = TlsAlloc();
+    if (tls->win32.index == TLS_OUT_OF_INDEXES)
+    {
+        _glfwInputErrorWin32(GLFW_PLATFORM_ERROR,
+                             "Win32: Failed to allocate TLS index");
+        return GLFW_FALSE;
+    }
+
+    tls->win32.allocated = GLFW_TRUE;
+    return GLFW_TRUE;
 }
 
-_GLFWwindow* _glfwPlatformGetCurrentContext(void)
+void _glfwPlatformDestroyTls(_GLFWtls* tls)
 {
-    return TlsGetValue(_glfw.win32_tls.context);
+    if (tls->win32.allocated)
+        TlsFree(tls->win32.index);
+    memset(tls, 0, sizeof(_GLFWtls));
+}
+
+void* _glfwPlatformGetTls(_GLFWtls* tls)
+{
+    assert(tls->win32.allocated == GLFW_TRUE);
+    return TlsGetValue(tls->win32.index);
+}
+
+void _glfwPlatformSetTls(_GLFWtls* tls, void* value)
+{
+    assert(tls->win32.allocated == GLFW_TRUE);
+    TlsSetValue(tls->win32.index, value);
+}
+
+GLFWbool _glfwPlatformIsValidTls(_GLFWtls* tls)
+{
+    return tls->win32.allocated;
 }
 

@@ -1,8 +1,8 @@
 //========================================================================
-// GLFW 3.2 Win32 - www.glfw.org
+// GLFW 3.3 Win32 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
-// Copyright (c) 2006-2016 Camilla Berglund <elmindreda@glfw.org>
+// Copyright (c) 2006-2016 Camilla Löwy <elmindreda@glfw.org>
 //
 // This software is provided 'as-is', without any express or implied
 // warranty. In no event will the authors be held liable for any damages
@@ -161,33 +161,33 @@ typedef enum PROCESS_DPI_AWARENESS
 #endif
 
 // winmm.dll function pointer typedefs
-typedef DWORD (WINAPI * TIMEGETTIME_T)(void);
-#define _glfw_timeGetTime _glfw.win32.winmm.timeGetTime
+typedef DWORD (WINAPI * PFN_timeGetTime)(void);
+#define timeGetTime _glfw.win32.winmm.GetTime
 
 // xinput.dll function pointer typedefs
-typedef DWORD (WINAPI * XINPUTGETCAPABILITIES_T)(DWORD,DWORD,XINPUT_CAPABILITIES*);
-typedef DWORD (WINAPI * XINPUTGETSTATE_T)(DWORD,XINPUT_STATE*);
-#define _glfw_XInputGetCapabilities _glfw.win32.xinput.XInputGetCapabilities
-#define _glfw_XInputGetState _glfw.win32.xinput.XInputGetState
+typedef DWORD (WINAPI * PFN_XInputGetCapabilities)(DWORD,DWORD,XINPUT_CAPABILITIES*);
+typedef DWORD (WINAPI * PFN_XInputGetState)(DWORD,XINPUT_STATE*);
+#define XInputGetCapabilities _glfw.win32.xinput.GetCapabilities
+#define XInputGetState _glfw.win32.xinput.GetState
 
 // dinput8.dll function pointer typedefs
-typedef HRESULT (WINAPI * DIRECTINPUT8CREATE_T)(HINSTANCE,DWORD,REFIID,LPVOID*,LPUNKNOWN);
-#define _glfw_DirectInput8Create _glfw.win32.dinput8.DirectInput8Create
+typedef HRESULT (WINAPI * PFN_DirectInput8Create)(HINSTANCE,DWORD,REFIID,LPVOID*,LPUNKNOWN);
+#define DirectInput8Create _glfw.win32.dinput8.Create
 
 // user32.dll function pointer typedefs
-typedef BOOL (WINAPI * SETPROCESSDPIAWARE_T)(void);
-typedef BOOL (WINAPI * CHANGEWINDOWMESSAGEFILTEREX_T)(HWND,UINT,DWORD,PCHANGEFILTERSTRUCT);
+typedef BOOL (WINAPI * PFN_SetProcessDPIAware)(void);
+typedef BOOL (WINAPI * PFN_ChangeWindowMessageFilterEx)(HWND,UINT,DWORD,PCHANGEFILTERSTRUCT);
 #define _glfw_SetProcessDPIAware _glfw.win32.user32.SetProcessDPIAware
 #define _glfw_ChangeWindowMessageFilterEx _glfw.win32.user32.ChangeWindowMessageFilterEx
 
 // dwmapi.dll function pointer typedefs
-typedef HRESULT (WINAPI * DWMISCOMPOSITIONENABLED_T)(BOOL*);
-typedef HRESULT (WINAPI * DWMFLUSH_T)(VOID);
+typedef HRESULT (WINAPI * PFN_DwmIsCompositionEnabled)(BOOL*);
+typedef HRESULT (WINAPI * PFN_DwmFlush)(VOID);
 #define _glfw_DwmIsCompositionEnabled _glfw.win32.dwmapi.DwmIsCompositionEnabled
 #define _glfw_DwmFlush _glfw.win32.dwmapi.DwmFlush
 
 // shcore.dll function pointer typedefs
-typedef HRESULT (WINAPI * SETPROCESSDPIAWARENESS_T)(PROCESS_DPI_AWARENESS);
+typedef HRESULT (WINAPI * PFN_SetProcessDpiAwareness)(PROCESS_DPI_AWARENESS);
 #define _glfw_SetProcessDpiAwareness _glfw.win32.shcore.SetProcessDpiAwareness
 
 typedef VkFlags VkWin32SurfaceCreateFlagsKHR;
@@ -207,6 +207,7 @@ typedef VkBool32 (APIENTRY *PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)(
 #include "win32_joystick.h"
 #include "wgl_context.h"
 #include "egl_context.h"
+#include "osmesa_context.h"
 
 #define _GLFW_WNDCLASSNAME L"GLFW30"
 
@@ -219,10 +220,10 @@ typedef VkBool32 (APIENTRY *PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)(
 
 #define _GLFW_PLATFORM_WINDOW_STATE         _GLFWwindowWin32  win32
 #define _GLFW_PLATFORM_LIBRARY_WINDOW_STATE _GLFWlibraryWin32 win32
-#define _GLFW_PLATFORM_LIBRARY_TIME_STATE   _GLFWtimeWin32    win32_time
-#define _GLFW_PLATFORM_LIBRARY_TLS_STATE    _GLFWtlsWin32     win32_tls
+#define _GLFW_PLATFORM_LIBRARY_TIMER_STATE  _GLFWtimerWin32   win32
 #define _GLFW_PLATFORM_MONITOR_STATE        _GLFWmonitorWin32 win32
 #define _GLFW_PLATFORM_CURSOR_STATE         _GLFWcursorWin32  win32
+#define _GLFW_PLATFORM_TLS_STATE            _GLFWtlsWin32     win32
 
 
 // Win32-specific per-window data
@@ -235,6 +236,7 @@ typedef struct _GLFWwindowWin32
 
     GLFWbool            cursorTracked;
     GLFWbool            iconified;
+    GLFWbool            maximized;
 
     // The last received cursor position, regardless of source
     int                 lastCursorPosX, lastCursorPosY;
@@ -247,47 +249,50 @@ typedef struct _GLFWlibraryWin32
 {
     HWND                helperWindowHandle;
     DWORD               foregroundLockTimeout;
+    int                 acquiredMonitorCount;
     char*               clipboardString;
     char                keyName[64];
-    short int           publicKeys[512];
-    short int           nativeKeys[GLFW_KEY_LAST + 1];
+    short int           keycodes[512];
+    short int           scancodes[GLFW_KEY_LAST + 1];
     // Where to place the cursor when re-enabled
     double              restoreCursorPosX, restoreCursorPosY;
     // The window whose disabled cursor mode is active
     _GLFWwindow*        disabledCursorWindow;
+    RAWINPUT*           rawInput;
+    int                 rawInputSize;
 
     struct {
-        HINSTANCE       instance;
-        TIMEGETTIME_T   timeGetTime;
+        HINSTANCE                       instance;
+        PFN_timeGetTime                 GetTime;
     } winmm;
 
     struct {
-        HINSTANCE            instance;
-        DIRECTINPUT8CREATE_T DirectInput8Create;
-        IDirectInput8W*      api;
+        HINSTANCE                       instance;
+        PFN_DirectInput8Create          Create;
+        IDirectInput8W*                 api;
     } dinput8;
 
     struct {
-        HINSTANCE               instance;
-        XINPUTGETCAPABILITIES_T XInputGetCapabilities;
-        XINPUTGETSTATE_T        XInputGetState;
+        HINSTANCE                       instance;
+        PFN_XInputGetCapabilities       GetCapabilities;
+        PFN_XInputGetState              GetState;
     } xinput;
 
     struct {
-        HINSTANCE                     instance;
-        SETPROCESSDPIAWARE_T          SetProcessDPIAware;
-        CHANGEWINDOWMESSAGEFILTEREX_T ChangeWindowMessageFilterEx;
+        HINSTANCE                       instance;
+        PFN_SetProcessDPIAware          SetProcessDPIAware;
+        PFN_ChangeWindowMessageFilterEx ChangeWindowMessageFilterEx;
     } user32;
 
     struct {
-        HINSTANCE       instance;
-        DWMISCOMPOSITIONENABLED_T DwmIsCompositionEnabled;
-        DWMFLUSH_T      DwmFlush;
+        HINSTANCE                       instance;
+        PFN_DwmIsCompositionEnabled     DwmIsCompositionEnabled;
+        PFN_DwmFlush                    DwmFlush;
     } dwmapi;
 
     struct {
-        HINSTANCE       instance;
-        SETPROCESSDPIAWARENESS_T SetProcessDpiAwareness;
+        HINSTANCE                       instance;
+        PFN_SetProcessDpiAwareness      SetProcessDpiAwareness;
     } shcore;
 
 } _GLFWlibraryWin32;
@@ -310,25 +315,25 @@ typedef struct _GLFWmonitorWin32
 //
 typedef struct _GLFWcursorWin32
 {
-    HCURSOR handle;
+    HCURSOR             handle;
 
 } _GLFWcursorWin32;
 
 // Win32-specific global timer data
 //
-typedef struct _GLFWtimeWin32
+typedef struct _GLFWtimerWin32
 {
     GLFWbool            hasPC;
     uint64_t            frequency;
 
-} _GLFWtimeWin32;
+} _GLFWtimerWin32;
 
-// Win32-specific global TLS data
+// Win32-specific thread local storage data
 //
 typedef struct _GLFWtlsWin32
 {
-    GLFWbool        allocated;
-    DWORD           context;
+    GLFWbool            allocated;
+    DWORD               index;
 
 } _GLFWtlsWin32;
 
@@ -336,14 +341,13 @@ typedef struct _GLFWtlsWin32
 GLFWbool _glfwRegisterWindowClassWin32(void);
 void _glfwUnregisterWindowClassWin32(void);
 
-GLFWbool _glfwInitThreadLocalStorageWin32(void);
-void _glfwTerminateThreadLocalStorageWin32(void);
-
 WCHAR* _glfwCreateWideStringFromUTF8Win32(const char* source);
 char* _glfwCreateUTF8FromWideStringWin32(const WCHAR* source);
+void _glfwInputErrorWin32(int error, const char* description);
 
 void _glfwInitTimerWin32(void);
 
+void _glfwPollMonitorsWin32(void);
 GLFWbool _glfwSetVideoModeWin32(_GLFWmonitor* monitor, const GLFWvidmode* desired);
 void _glfwRestoreVideoModeWin32(_GLFWmonitor* monitor);
 

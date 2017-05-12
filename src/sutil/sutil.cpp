@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,11 +28,14 @@
 
 
 // Note: wglew.h has to be included before sutil.h on Windows
-#ifndef  __APPLE__
+#if defined(__APPLE__)
+#  include <GLUT/glut.h>
+#else
 #  include <GL/glew.h>
 #  if defined(_WIN32)
 #    include <GL/wglew.h>
 #  endif
+#  include <GL/glut.h>
 #endif
 
 #include <GLFW/glfw3.h>
@@ -60,7 +63,7 @@
 #  endif
 #  include<windows.h>
 #  include<mmsystem.h>
-#else // Apple and Linux both use this 
+#else // Apple and Linux both use this
 #  include<sys/time.h>
 #  include <unistd.h>
 #  include <dirent.h>
@@ -76,13 +79,13 @@ namespace
 // Global variables for GLUT display functions
 RTcontext   g_context           = 0;
 RTbuffer    g_image_buffer      = 0;
-GLFWwindow* g_window            = 0; 
+GLFWwindow* g_window            = 0;
 bool        g_glfw_initialized  = false;
 
 
-void errorCallback(int error, const char* description)                   
-{                                                                                
-    std::cerr << "GLFW Error " << error << ": " << description << std::endl;           
+void errorCallback(int error, const char* description)
+{
+    std::cerr << "GLFW Error " << error << ": " << description << std::endl;
 }
 
 
@@ -169,7 +172,7 @@ void checkBuffer( RTbuffer buffer )
     // Check to see if the buffer is of type float{1,3,4} or uchar4
     RTformat format;
     RT_CHECK_ERROR( rtBufferGetFormat(buffer, &format) );
-    if( RT_FORMAT_FLOAT  != format && 
+    if( RT_FORMAT_FLOAT  != format &&
             RT_FORMAT_FLOAT4 != format &&
             RT_FORMAT_FLOAT3 != format &&
             RT_FORMAT_UNSIGNED_BYTE4 != format )
@@ -209,7 +212,7 @@ bool dirExists( const char* path )
     DIR* dir = opendir( path );
     if( dir == NULL )
         return false;
-    
+
     closedir(dir);
     return true;
 #endif
@@ -289,7 +292,7 @@ optix::Buffer sutil::createOutputBuffer(
         unsigned height,
         bool use_pbo )
 {
-    
+
     optix::Buffer buffer;
     if( use_pbo )
     {
@@ -335,7 +338,7 @@ void sutil::resizeBuffer( optix::Buffer buffer, unsigned width, unsigned height 
 
 
 optix::GeometryInstance sutil::createOptiXGroundPlane( optix::Context context,
-                                               const std::string& parallelogram_ptx, 
+                                               const std::string& parallelogram_ptx,
                                                const optix::Aabb& aabb,
                                                optix::Material material,
                                                float scale )
@@ -380,7 +383,7 @@ GLFWwindow* sutil::initGLFW()
     glfwSetKeyCallback( g_window, keyCallback );
 
     g_glfw_initialized = true;
-    
+
     ImGui_ImplGlfw_Init( g_window, /*install callbacks*/ true );
 
     return g_window;
@@ -407,27 +410,27 @@ void sutil::displayBufferGLFW( const char* window_title, RTbuffer buffer )
 
     GLsizei width  = static_cast<int>( buffer_width );
     GLsizei height = static_cast<int>( buffer_height );
-    
+
     glfwSetWindowTitle( g_window, window_title );
     glfwSetWindowSize( g_window, width, height );
 
     // Init state
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(0, width, 0, height);
-    
+    glOrtho(0, width, 0, height, -1, 1);
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    
+
     while( !glfwWindowShouldClose( g_window ) )
     {
-        glfwPollEvents();                                                        
+        glfwPollEvents();
         display();
     }
 
     if( g_context )
         rtContextDestroy( g_context );
-    
+
     glfwDestroyWindow( g_window );
     glfwTerminate();
     ImGui_ImplGlfw_Shutdown();
@@ -557,7 +560,7 @@ void sutil::displayBufferGL( optix::Buffer buffer )
     uint32_t width  = static_cast<int>(buffer_width_rts);
     uint32_t height = static_cast<int>(buffer_height_rts);
     RTformat buffer_format = buffer->getFormat();
-    
+
     GLboolean use_SRGB = GL_FALSE;
     if( buffer_format == RT_FORMAT_FLOAT4 || buffer_format == RT_FORMAT_FLOAT3 )
     {
@@ -610,8 +613,8 @@ void sutil::displayBufferGL( optix::Buffer buffer )
         glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
 
         // 1:1 texel to pixel mapping with glOrtho(0, 1, 0, 1, -1, 1) setup:
-        // The quad coordinates go from lower left corner of the lower left pixel 
-        // to the upper right corner of the upper right pixel. 
+        // The quad coordinates go from lower left corner of the lower left pixel
+        // to the upper right corner of the upper right pixel.
         // Same for the texel coordinates.
 
         glEnable(GL_TEXTURE_2D);
@@ -668,7 +671,7 @@ void sutil::displayBufferGL( optix::Buffer buffer )
 
         RTsize elmt_size = buffer->getElementSize();
         int align = 1;
-        if      ((elmt_size % 8) == 0) align = 8; 
+        if      ((elmt_size % 8) == 0) align = 8;
         else if ((elmt_size % 4) == 0) align = 4;
         else if ((elmt_size % 2) == 0) align = 2;
         glPixelStorei(GL_UNPACK_ALIGNMENT, align);
@@ -754,22 +757,22 @@ void sutil::calculateCameraVariables( float3 eye, float3 lookat, float3 up,
     float ulen, vlen, wlen;
     W = lookat - eye; // Do not normalize W -- it implies focal length
 
-    wlen = length( W ); 
+    wlen = length( W );
     U = normalize( cross( W, up ) );
     V = normalize( cross( U, W  ) );
 
-	if ( fov_is_vertical ) {
-		vlen = wlen * tanf( 0.5f * fov * M_PIf / 180.0f );
-		V *= vlen;
-		ulen = vlen * aspect_ratio;
-		U *= ulen;
-	}
-	else {
-		ulen = wlen * tanf( 0.5f * fov * M_PIf / 180.0f );
-		U *= ulen;
-		vlen = ulen / aspect_ratio;
-		V *= vlen;
-	}
+        if ( fov_is_vertical ) {
+                vlen = wlen * tanf( 0.5f * fov * M_PIf / 180.0f );
+                V *= vlen;
+                ulen = vlen * aspect_ratio;
+                U *= ulen;
+        }
+        else {
+                ulen = wlen * tanf( 0.5f * fov * M_PIf / 180.0f );
+                U *= ulen;
+                vlen = ulen / aspect_ratio;
+                V *= vlen;
+        }
 }
 
 
@@ -841,7 +844,7 @@ double sutil::currentTime()
 
     return  tv.tv_sec+ tv.tv_usec * 1.0e-6;
 
-#endif 
+#endif
 }
 
 
@@ -853,4 +856,3 @@ void sutil::sleep( int seconds )
     ::sleep( seconds );
 #endif
 }
-
