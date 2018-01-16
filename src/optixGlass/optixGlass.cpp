@@ -80,6 +80,10 @@ Context      context = 0;
 //
 //------------------------------------------------------------------------------
     
+static __inline__ float3 logf( float3 v )
+{
+  return make_float3( logf(v.x), logf(v.y), logf(v.z) );
+}
 
 static std::string ptxPath( const std::string& cuda_file )
 {
@@ -176,7 +180,8 @@ Material createGlassMaterial( )
     // Set this on the global context so it's easy to change in the gui
     const float3 transmittance = DEFAULT_TRANSMITTANCE;
     context["unit_transmittance"]->setFloat( transmittance.x, transmittance.y, transmittance.z );
-
+    const float3 extinction = -logf(transmittance);
+    context["extinction"]->setFloat( extinction );
     return material;
 }
 
@@ -367,7 +372,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
     unsigned int frame_count = 0;
     unsigned int accumulation_frame = 0;
     float3 glass_transmittance = DEFAULT_TRANSMITTANCE;
-    float transmittance_log_scale = 0.0f;
+    float log_transmittance_depth = 0.0f;
     int max_depth = 10;
     bool draw_ground = true;
 
@@ -414,17 +419,18 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
             ImGui::Begin("controls", 0, window_flags );
             if ( ImGui::CollapsingHeader( "Controls", ImGuiTreeNodeFlags_DefaultOpen ) ) {
                 bool transmittance_changed = false;
-                if ( ImGui::SliderFloat3( "transmittance color", (float*)(&glass_transmittance.x), 0.0f, 1.0f ) )
+                if( ImGui::ColorEdit3("transmittance color", (float*)(&glass_transmittance.x)))
                 {
                     transmittance_changed = true;
                 }
-                if ( ImGui::SliderFloat( "transmittance log scale", (float*)(&transmittance_log_scale), -10, 0 ) )
+                if ( ImGui::SliderFloat( "log transmittance depth", (float*)(&log_transmittance_depth), -8, 8 ) )
                 {
                     transmittance_changed = true;
                 }
                 if ( transmittance_changed ) {
-                    const float3 t = expf(transmittance_log_scale) * glass_transmittance;
-                    context["unit_transmittance"]->setFloat( t.x, t.y, t.z );
+                    const float t0 = expf(log_transmittance_depth);
+                    const float3 extinction = -logf(glass_transmittance) / t0;
+                    context["extinction"]->setFloat( extinction );
                     accumulation_frame = 0;
                 }
                 
