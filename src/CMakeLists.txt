@@ -305,6 +305,7 @@ add_subdirectory(optixGlass)
 add_subdirectory(optixOcean)
 add_subdirectory(optixProgressivePhotonMap)
 add_subdirectory(optixVox)
+add_subdirectory(optixParticleVolumes)
 
 
 # Our sutil library.  The rules to build it are found in the subdirectory.
