@@ -456,14 +456,14 @@ void loadParticles()
             {
                 const float4& p = positions[i];
 
-                pmin.x = fminf(pmin.x, p.x - rd);
-                pmin.y = fminf(pmin.y, p.y - rd);
-                pmin.z = fminf(pmin.z, p.z - rd);
+                pmin.x = fminf(pmin.x, p.x);
+                pmin.y = fminf(pmin.y, p.y);
+                pmin.z = fminf(pmin.z, p.z);
                 pmin.w = fminf(pmin.w, p.w);
 
-                pmax.x = fmaxf(pmax.x, p.x + rd);
-                pmax.y = fmaxf(pmax.y, p.y + rd);
-                pmax.z = fmaxf(pmax.z, p.z + rd);
+                pmax.x = fmaxf(pmax.x, p.x);
+                pmax.y = fmaxf(pmax.y, p.y);
+                pmax.z = fmaxf(pmax.z, p.z);
                 pmax.w = fmaxf(pmax.w, p.w);
             }
 
@@ -471,8 +471,8 @@ void loadParticles()
             std::cerr << "Particle pmax = " << pmax << std::endl;
             printf("Computed pmin, pmax\n");
 
-            bbox_min = make_float3(pmin.x, pmin.y, pmin.z);
-            bbox_max = make_float3(pmax.x, pmax.y, pmax.z);
+            bbox_min = make_float3(pmin.x - rd, pmin.y - rd, pmin.z - rd);
+            bbox_max = make_float3(pmax.x + rd, pmax.y + rd, pmax.z + rd);
 
             if (fixed_radius == 0.f)
               fixed_radius = length(bbox_max - bbox_min) / powf(numParticles, 0.33333f);  
@@ -613,14 +613,43 @@ void loadParticles()
                 velocities.push_back( make_float3( vx, vy, vz ) );
                 colors.push_back( make_float3( r, g, b ) );
                 radii.push_back( rd );
-
-                // updates the bounding box with the bounding box of the current particle
-                const float3 p_min = make_float3( x - rd, y - rd, z - rd );
-                const float3 p_max = make_float3( x + rd, y + rd, z + rd );
-
-                bbox_min = get_min( bbox_min, p_min );
-                bbox_max = get_max( bbox_max, p_max );
             }
+
+            const int numParticles = positions.size();
+
+            float4 pmin, pmax;
+            pmin.x = pmin.y = pmin.z = pmin.w = 1e16f;
+            pmax.x = pmax.y = pmax.z = pmax.w = -1e16f;
+
+            for(size_t i=0; i<numParticles; i++)
+            {
+                const float4& p = positions[i];
+
+                pmin.x = fminf(pmin.x, p.x);
+                pmin.y = fminf(pmin.y, p.y);
+                pmin.z = fminf(pmin.z, p.z);
+                pmin.w = fminf(pmin.w, p.w);
+
+                pmax.x = fmaxf(pmax.x, p.x);
+                pmax.y = fmaxf(pmax.y, p.y);
+                pmax.z = fmaxf(pmax.z, p.z);
+                pmax.w = fmaxf(pmax.w, p.w);
+            }
+
+            std::cerr << "Particle pmin = " << pmin << std::endl;
+            std::cerr << "Particle pmax = " << pmax << std::endl;
+            printf("Computed pmin, pmax\n");
+
+            bbox_min = make_float3(pmin.x, pmin.y, pmin.z);
+            bbox_max = make_float3(pmax.x, pmax.y, pmax.z);
+
+            if (fixed_radius == 0.f)
+              fixed_radius = length(bbox_max - bbox_min) / powf(positions.size(), 0.333333f);  
+
+            std::cerr << "Using fixed_radius = " << fixed_radius << std::endl;
+
+            bbox_min -= make_float3(fixed_radius);
+            bbox_max += make_float3(fixed_radius);
 
             std::cerr << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
 
@@ -701,7 +730,7 @@ void setupParticles()
     geometry_group->addChild( geom_instance );
     
     Acceleration accel = context->createAcceleration( "Bvh8" );
-    accel->setProperty( "refit", "1" );
+    //accel->setProperty( "refit", "1" );
     geometry_group->setAcceleration( accel );
 
     context[ "top_object"   ]->set( geometry_group );
@@ -901,6 +930,10 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
     CallbackData cb = { camera, accumulation_frame };
     glfwSetWindowUserPointer( window, &cb );
 
+    const float initial_fixed_radius = fixed_radius;
+    const float fixed_radius_min = fixed_radius * .25f;
+    const float fixed_radius_max = fixed_radius * 2.f;
+
     while( !glfwWindowShouldClose( window ) )
     {
 
@@ -942,7 +975,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
             ImGui::SetNextWindowPos( ImVec2( 2.0f, 40.0f ) );
             ImGui::Begin("controls", 0, window_flags );
 
-            if (ImGui::SliderFloat( "radius", &fixed_radius, 25.0f, 200.0f ) ) {
+            if (ImGui::SliderFloat( "radius", &fixed_radius, fixed_radius_min, fixed_radius_max ) ) {
               context[ "fixed_radius"     ]->setFloat(fixed_radius);
               geometry[ "fixed_radius"      ]->setFloat(fixed_radius);
               Acceleration accel = geometry_group->getAcceleration();
@@ -1079,6 +1112,15 @@ int main( int argc, char** argv )
             }
             max_particles = atoi(argv[++i]);
         }
+        else if( arg == "--tf_type"  )
+        {
+            if( i == argc-1 )
+            {
+                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                printUsageAndExit( argv[0] );
+            }
+            tf_type = atoi(argv[++i]);
+        }
         else if( arg == "--no_radius"  )
         {
             particles_file_radius = false;
@@ -1105,6 +1147,15 @@ int main( int argc, char** argv )
                 printUsageAndExit( argv[0] );
             }
             slab_size = atof( argv[++i] );
+        }
+        else if( arg == "--wScale"  )
+        {
+            if( i == argc-1 )
+            {
+                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                printUsageAndExit( argv[0] );
+            }
+            wScale = atof( argv[++i] );
         }
         else if( arg == "--wExponent"  )
         {

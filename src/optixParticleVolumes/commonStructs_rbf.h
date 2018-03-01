@@ -31,7 +31,6 @@
 #include <optixu/optixu_vector_types.h>
 
 const int RBF_SAMPLES = 256;
-const float RBF_RADIUS_PAD = 1.f;
 
 #if defined(__cplusplus)
   typedef optix::float3 float3;
