@@ -741,7 +741,7 @@ void setupCamera()
 {
     const float max_dim = fmaxf( aabb.extent( 0 ), aabb.extent( 1 ) ); // max of x, y components
 
-    camera_eye    = aabb.center() + make_float3( 0.0f, 0.0f, max_dim*1.85f );
+    camera_eye    = aabb.center() + make_float3( 0.0f, 0.0f, max_dim*1.1f );
     camera_lookat = aabb.center();
     camera_up     = make_float3( 0.0f, 1.0f, 0.0f );
 

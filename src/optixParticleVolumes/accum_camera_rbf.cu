@@ -102,7 +102,7 @@ RT_PROGRAM void pinhole_camera()
 
   optix::Ray ray(ray_origin, ray_direction, radiance_ray_type, scene_epsilon, RT_DEFAULT_MAX);
 
-  PerRayData_radiance prd;
+  PerRayData_radiance_rbf prd;
 
   //ray-AABB intersection to determine number of slabs
   float3 t0, t1, tmin, tmax;
@@ -115,7 +115,6 @@ RT_PROGRAM void pinhole_camera()
 
   float spacing = (RBF_SAMPLES * slab_size) * fixed_radius;
 
-  prd.result = make_float3(0.f);
   float3 result = make_float3(0);
   float result_alpha = 0.f;
   
@@ -192,10 +191,8 @@ RT_PROGRAM void pinhole_camera()
 
   }
 
-  prd.result = result;
-
   //write to frame buffer
-  float4 acc_val =  make_float4(prd.result, 0.f);
+  float4 acc_val =  make_float4(result, 0.f);
   output_buffer[launch_index] = make_color( make_float3( acc_val ) );
   accum_buffer[launch_index] = acc_val;
 }

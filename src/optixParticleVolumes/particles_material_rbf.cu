@@ -33,7 +33,7 @@
 using namespace optix;
 
 rtDeclareVariable(float2,   particle_rbf,    attribute particle_rbf, );
-rtDeclareVariable(PerRayData_radiance,  prd,            rtPayload, );
+rtDeclareVariable(PerRayData_radiance_rbf,  prd,            rtPayload, );
 
 RT_PROGRAM void any_hit()
 {

@@ -45,12 +45,23 @@ struct BasicLight
   int    padding;      // make this structure 32 bytes -- powers of two are your friend!
 };
 
-struct PerRayData_radiance
+struct PerRayData_radiance_rbf
 {
   float3 result;
   int    rbfi;
   float2 rbfs[RBF_SAMPLES];
 };
+
+/*
+const int SPH_SAMPLES = 512;
+
+struct PerRayData_radiance_sph
+{
+  float3 result;
+  int    rbfi;
+  float2 rbfs[RBF_SAMPLES];
+};
+*/
 
 
 
