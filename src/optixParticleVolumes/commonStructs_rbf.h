@@ -30,7 +30,7 @@
 
 #include <optixu/optixu_vector_types.h>
 
-const int RBF_SAMPLES = 256;
+const int RBF_SAMPLES = 64;
 
 #if defined(__cplusplus)
   typedef optix::float3 float3;
