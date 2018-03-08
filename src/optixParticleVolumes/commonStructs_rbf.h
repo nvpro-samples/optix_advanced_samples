@@ -30,7 +30,7 @@
 
 #include <optixu/optixu_vector_types.h>
 
-const int RBF_SAMPLES = 64;
+const int RBF_SAMPLES = 256;
 
 #if defined(__cplusplus)
   typedef optix::float3 float3;
@@ -52,16 +52,6 @@ struct PerRayData_radiance_rbf
   float2 rbfs[RBF_SAMPLES];
 };
 
-/*
-const int SPH_SAMPLES = 512;
-
-struct PerRayData_radiance_sph
-{
-  float3 result;
-  int    rbfi;
-  float2 rbfs[RBF_SAMPLES];
-};
-*/
 
 
 
