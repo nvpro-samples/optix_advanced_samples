@@ -55,7 +55,7 @@
 #include "select.h"
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_glfw_gl2.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -565,7 +565,7 @@ void createPhotonMap( Buffer photons_buffer, Buffer photon_map_buffer )
   }
 
   // Make sure we aren't at most 1 less than power of 2
-  valid_photons = valid_photons >= photon_map_size ? photon_map_size : valid_photons;
+  valid_photons = (valid_photons >= (unsigned int) photon_map_size) ? (unsigned int) photon_map_size : valid_photons;
 
   float3 bbmin = make_float3(0.0f);
   float3 bbmax = make_float3(0.0f);
@@ -779,7 +779,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, PPMLight& light, unsign
 
         glfwPollEvents();                                                        
 
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplGlfwGL2_NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
         
@@ -892,6 +892,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, PPMLight& light, unsign
 
         // Render gui over it
         ImGui::Render();
+        ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers( window );
     }

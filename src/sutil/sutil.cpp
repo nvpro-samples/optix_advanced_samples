@@ -44,7 +44,7 @@
 #include <sutil/stb/stb_image_write.h>
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_glfw_gl2.h>
 
 #include <optixu/optixu_math_namespace.h>
 
@@ -96,10 +96,13 @@ void keyCallback( GLFWwindow* /*window*/, int key, int /*scancode*/, int action,
             case GLFW_KEY_ESCAPE:
                 if( g_context )
                     rtContextDestroy( g_context );
+
+                ImGui_ImplGlfwGL2_Shutdown();
+                ImGui::DestroyContext();
                 if( g_window )
                     glfwDestroyWindow( g_window );
                 glfwTerminate();
-                ImGui_ImplGlfw_Shutdown();
+
                 exit(EXIT_SUCCESS);
         }
     }
@@ -381,7 +384,8 @@ GLFWwindow* sutil::initGLFW()
 
     g_glfw_initialized = true;
     
-    ImGui_ImplGlfw_Init( g_window, /*install callbacks*/ true );
+    ImGui::CreateContext();
+    ImGui_ImplGlfwGL2_Init( g_window, /*install callbacks*/ true );
 
     return g_window;
 }
@@ -428,9 +432,11 @@ void sutil::displayBufferGLFW( const char* window_title, RTbuffer buffer )
     if( g_context )
         rtContextDestroy( g_context );
     
+    ImGui_ImplGlfwGL2_Shutdown();
+    ImGui::DestroyContext();
+
     glfwDestroyWindow( g_window );
     glfwTerminate();
-    ImGui_ImplGlfw_Shutdown();
 }
 
 

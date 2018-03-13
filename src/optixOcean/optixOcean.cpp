@@ -53,7 +53,7 @@
 #include <cuda_runtime.h>
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_glfw_gl2.h>
 
 #include <fstream>
 #include <iostream>
@@ -518,7 +518,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
 
         glfwPollEvents();                                                        
 
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplGlfwGL2_NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
         
@@ -579,6 +579,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
 
         // Render gui over it
         ImGui::Render();
+        ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers( window );
     }
