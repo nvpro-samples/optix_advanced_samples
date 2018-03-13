@@ -35,12 +35,12 @@
 // - initialize the minimum OptiX objects to write to a buffer from within a ray generation program.
 // - dump information about the GPU devices visible to OptiX.
 // - declare variables and buffers on host and device side.
-// - use a host buffer or an OptiX interoperability buffer to display an image rendered in OptiX.
+// - use a host buffer or an OpenGL interoperability buffer to display an image rendered in OptiX.
 // - change variable values and buffer sizes, and read buffer contents on the host.
 // - setup a ray generation program which fills the output buffer without shooting any rays, basically a 2D compute kernel.
 // - setup a exception program to catch errors thrown by OptiX on device side.
 // - declare and use variables with the predefined OptiX semantics rtLaunchIndex.
-// - setup an empty scene graph root Group node with.
+// - setup an empty scene graph root Group node with NoAccel Acceleration.
 //
 //-----------------------------------------------------------------------------
 
