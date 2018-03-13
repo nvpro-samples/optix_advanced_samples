@@ -313,6 +313,7 @@ add_subdirectory(optixIntro_04)
 add_subdirectory(optixIntro_05)
 add_subdirectory(optixIntro_06)
 add_subdirectory(optixIntro_07)
+add_subdirectory(optixIntro_08)
 add_subdirectory(optixVox)
 
 
