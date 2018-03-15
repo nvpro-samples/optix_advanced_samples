@@ -36,6 +36,7 @@
 #include <optixu/optixu_matrix_namespace.h>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 

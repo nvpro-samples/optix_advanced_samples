@@ -35,6 +35,8 @@
 #include <IL/il.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cstring>
 #include <iostream>
 
 #include "inc/MyAssert.h"
@@ -232,9 +234,10 @@ bool Picture::load(const std::string& filename)
   if (last != std::string::npos) 
   { 
     ext = filename.substr(last, std::string::npos);
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return std::tolower(c); });
   }
 
-  bool isDDS = !_stricmp(".DDS", ext.c_str()); // .dds images need special handling
+  bool isDDS = (ext == std::string(".dds")); // .dds images need special handling
   m_isCube = false;
   
   unsigned int imageID;

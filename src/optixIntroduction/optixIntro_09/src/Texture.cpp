@@ -35,6 +35,7 @@
 #include <optixu/optixu_math_namespace.h>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 
 #include "inc/MyAssert.h"
