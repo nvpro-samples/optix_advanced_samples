@@ -42,7 +42,6 @@
 #define FLAG_TERMINATE      0x80000000
 
 
-// All ray types in this renderer use the same per ray payload.
 // Note that the fields are ordered by CUDA alignment.
 struct PerRayData
 {

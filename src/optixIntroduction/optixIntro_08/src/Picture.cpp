@@ -546,7 +546,7 @@ void Picture::mirrorX(unsigned int index)
   // Flip all images upside down.
   for (size_t i = 0; i < m_images[index].size(); ++i)
   {
-    Image* image = &m_images[index][i]; // DAR FIXME Use a reference?
+    Image* image = &m_images[index][i];
 
     const unsigned char* srcPixels = image->m_pixels;
     unsigned char*       dstPixels = new unsigned char[image->m_nob];

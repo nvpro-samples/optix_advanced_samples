@@ -134,7 +134,7 @@ RT_CALLABLE_PROGRAM void sample_light_environment(float3 const& point, const flo
   const float v = (float(index.y) + dv) / float(sizeV - 1);
 
   // Light sample direction vector polar coordinates. This is where the environment rotation happens!
-  // DAR FIXME Use the light.matrix to rotate the resulting vector instead.
+  // DAR FIXME Use a light.matrix to rotate the resulting vector instead.
   const float phi   = (u - sysEnvironmentRotation) * 2.0f * M_PIf;
   const float theta = v * M_PIf; // theta == 0.0f is south pole, theta == M_PIf is north pole.
   

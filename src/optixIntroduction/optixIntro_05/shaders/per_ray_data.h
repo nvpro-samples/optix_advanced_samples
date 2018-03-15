@@ -36,7 +36,7 @@
 #include "random_number_generators.h"
 
 // Set by BSDFs which support direct lighting. Not set means specular interaction. Cleared in the closesthit program.
-// Used decide when to do direct lighting and multuiple importance sampling on implicit light hits.
+// Used to decide when to do direct lighting and multuiple importance sampling on implicit light hits.
 #define FLAG_DIFFUSE        0x00000002
 
 // Set if (0.0f <= wo_dot_ng), means looking onto the front face. (Edge-on is explicitly handled as frontface for the material stack.)
@@ -58,7 +58,6 @@ struct State
   optix::float3 normal;
 };
 
-// All ray types in this renderer use the same per ray payload.
 // Note that the fields are ordered by CUDA alignment restrictions.
 struct PerRayData
 {

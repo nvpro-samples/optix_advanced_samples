@@ -1089,7 +1089,7 @@ void Application::guiWindow()
 
     for (int i = 0; i < int(m_guiMaterialParameters.size()); ++i)
     {
-      if (ImGui::TreeNode((void*)(intptr_t) i, "Material %d", i)) // DAR FIXME No need for the (intptr_t) cast.
+      if (ImGui::TreeNode((void*)(intptr_t) i, "Material %d", i))
       {
         MaterialParameterGUI& parameters = m_guiMaterialParameters[i];
 
@@ -1147,7 +1147,7 @@ void Application::guiWindow()
       // Allow to change the emission (radiant exitance in Watt/m^2 of the rectangle lights in the scene.
       if (light.type == LIGHT_PARALLELOGRAM)
       {
-        if (ImGui::TreeNode((void*)(intptr_t) i, "Light %d", i)) // DAR FIXME No need for the (intptr_t) cast.
+        if (ImGui::TreeNode((void*)(intptr_t) i, "Light %d", i)) 
         {
           if (ImGui::DragFloat3("Emission", (float*) &light.emission, 1.0f, 0.0f, 10000.0f, "%.0f"))
           {

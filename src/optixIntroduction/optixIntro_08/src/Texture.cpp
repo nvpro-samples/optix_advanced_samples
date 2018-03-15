@@ -342,7 +342,7 @@ bool Texture::determineDeviceEncoding(int format, int type)
 {
   bool success = true;
 
-  switch (format) // DAR FIXME Minimize the data. Genetrat 1, 2, and 4 chank
+  switch (format)
   {
     case IL_RGB:
     case IL_BGR:
