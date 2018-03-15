@@ -36,7 +36,7 @@
 // - implement thin-walled materials.
 // - select dynamically which BSDF to use via the material parameters.
 // - support nested materials with proper index of refraction handling between media and proper absorption calculation in the integrator.
-// - implement different camera projections with bindless callable programs for pinhol, fisheye and sphere projections.
+// - implement different camera projections with bindless callable programs for pinhole, fisheye and sphere projections.
 // - show how to switch between the camera projections instantly at runtime.
 //
 //-----------------------------------------------------------------------------

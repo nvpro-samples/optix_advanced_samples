@@ -67,7 +67,7 @@ RT_PROGRAM void closesthit()
   // In this implementation the coordinate systems are right-handed and the frontface triangle winding is counter-clockwise (matching OpenGL).
 
   // If theRay.direction and geometric normal are in the same hemisphere we're looking at a backface.
-  if (0 < optix::dot(theRay.direction, geoNormal))
+  if (0.0f < optix::dot(theRay.direction, geoNormal))
   {
     // Flip the shading normal to the backface, because only that is used below.
     // (See later examples for more intricate handling of the frontface condition.)

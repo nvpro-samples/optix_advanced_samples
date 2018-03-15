@@ -306,17 +306,8 @@ add_subdirectory(optixHello)
 add_subdirectory(optixGlass)
 add_subdirectory(optixOcean)
 add_subdirectory(optixProgressivePhotonMap)
-add_subdirectory(optixIntro_01)
-add_subdirectory(optixIntro_02)
-add_subdirectory(optixIntro_03)
-add_subdirectory(optixIntro_04)
-add_subdirectory(optixIntro_05)
-add_subdirectory(optixIntro_06)
-add_subdirectory(optixIntro_07)
-add_subdirectory(optixIntro_08)
-add_subdirectory(optixIntro_09)
 add_subdirectory(optixVox)
-
+add_subdirectory(optixIntroduction)
 
 # Our sutil library.  The rules to build it are found in the subdirectory.
 add_subdirectory(sutil)
