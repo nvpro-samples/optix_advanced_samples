@@ -224,7 +224,6 @@ void setParticlesBaseName( const std::string &particles_file )
     std::string::size_type second_dot_pos = particles_file.rfind( "." );
 
     particles_file_extension = particles_file.substr( second_dot_pos+1 );
-    std::cout << "particles_file_extension = " << particles_file_extension << std::endl;
 
     if ( ( first_dot_pos == std::string::npos ) || ( first_dot_pos == second_dot_pos ) ) {
         // either there are no dots in the name or there is just one, it won't be a sequence
@@ -368,8 +367,6 @@ void createMaterialPrograms(
     Program &closest_hit,
     Program &any_hit)
 {
-    //if( !closest_hit )
-    //  closest_hit = context->createProgramFromPTXFile( ptxPath("particles_material_rbf.cu"), "closest_hit" );
     if( !any_hit )
       any_hit     = context->createProgramFromPTXFile( ptxPath("particles_material_rbf.cu"), "any_hit" );
 }
@@ -389,14 +386,12 @@ Material createOptiXMaterial(
 
 Program createBoundingBoxProgram( Context context )
 {
-  //const char *ptx = sutil::getPtxString( SAMPLE_NAME, "particles_geometry_rbf.cu" );
   return context->createProgramFromPTXFile( ptxPath("particles_geometry_rbf.cu"), "particle_bounds" );
 }
 
 
 Program createIntersectionProgram( Context context )
 {
-  //const char *ptx = sutil::getPtxString( SAMPLE_NAME, "particles_geometry_rbf.cu" );
   return context->createProgramFromPTXFile( ptxPath("particles_geometry_rbf.cu"), "particle_intersect" );
 }
 
@@ -404,10 +399,6 @@ Program createIntersectionProgram( Context context )
 // loads up the particles file corresponding to the current frame (if it is a sequence)
 void loadParticles()
 {
-    // caching to avoid reloading the particles with every frame
-    // however, we still refill the buffers and rebuild the acceleration structure
-
-
     float3 bbox_min, bbox_max;
 
     std::map<int, ParticleFrameData>::iterator cacheIt = dataCache.find(current_particle_frame);
@@ -420,9 +411,10 @@ void loadParticles()
         std::vector<float3>& colors = newCacheEntry.colors;
         std::vector<float>&  radii = newCacheEntry.radii;
 
+	//read raw data file.
         if (particles_file_extension == "raw")
         {
-            std::cerr << "Reading raw file" << particles_file << std::endl;
+            std::cout << "Reading raw file" << particles_file << std::endl;
 
             FILE* fp = fopen(particles_file.c_str(), "r");
             fseek(fp, 0L, SEEK_END);
@@ -430,11 +422,11 @@ void loadParticles()
             rewind(fp);
 
             size_t numParticles = sz / 16;
-            std::cerr << "# particles = " << numParticles << std::endl;
+            std::cout << "# particles = " << numParticles << std::endl;
 
             if (max_particles > 0 && numParticles > max_particles)
             {
-              std::cerr << "only reading " << max_particles << " particles." << std::endl;
+              std::cout << "only reading " << max_particles << " particles." << std::endl;
               numParticles = max_particles;
             }
 
@@ -447,11 +439,9 @@ void loadParticles()
             pmin.x = pmin.y = pmin.z = pmin.w = 1e16f;
             pmax.x = pmax.y = pmax.z = pmax.w = -1e16f;
 
-            printf("Read %d bytes\n", b);
-
             const float rd = fixed_radius;
 
-            //#pragma omp parallel for
+            #pragma omp parallel for
             for(size_t i=0; i<numParticles; i++)
             {
                 const float4& p = positions[i];
@@ -467,9 +457,8 @@ void loadParticles()
                 pmax.w = fmaxf(pmax.w, p.w);
             }
 
-            std::cerr << "Particle pmin = " << pmin << std::endl;
-            std::cerr << "Particle pmax = " << pmax << std::endl;
-            printf("Computed pmin, pmax\n");
+            std::cout << "Particle pmin = " << pmin << std::endl;
+            std::cout << "Particle pmax = " << pmax << std::endl;
 
             bbox_min = make_float3(pmin.x - rd, pmin.y - rd, pmin.z - rd);
             bbox_max = make_float3(pmax.x + rd, pmax.y + rd, pmax.z + rd);
@@ -477,7 +466,7 @@ void loadParticles()
             if (fixed_radius == 0.f)
               fixed_radius = length(bbox_max - bbox_min) / powf(numParticles, 0.33333f);  
 
-            std::cerr << "Using fixed_radius = " << fixed_radius << std::endl;
+            std::cout << "Particle fixed_radius = " << fixed_radius << std::endl;
     
             float wRange, wOff;
             if (pmin.w < 0.f)
@@ -496,9 +485,9 @@ void loadParticles()
               wOff = 0.f;
             }
 
-            std::cerr << "Transfer function tf_type = " << tf_type << std::endl;
+            std::cout << "Transfer function tf_type = " << tf_type << std::endl;
 
-            //#pragma omp parallel for
+            #pragma omp parallel for
             for(size_t i=0; i<numParticles; i++)
                 positions[i].w = positions[i].w * wRange + wOff;
 
@@ -508,11 +497,12 @@ void loadParticles()
                 wmin = fminf(wmin, positions[i].w);
                 wmax = fmaxf(wmax, positions[i].w);
             }
-            std::cerr << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
+            std::cout << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
         } 
+	//read txt data file
         else
         {
-            std::cerr << "Reading txt file" << particles_file << std::endl;
+            std::cout << "Reading txt file" << particles_file << std::endl;
 
             std::string filename = particles_file_base;
 
@@ -636,9 +626,8 @@ void loadParticles()
                 pmax.w = fmaxf(pmax.w, p.w);
             }
 
-            std::cerr << "Particle pmin = " << pmin << std::endl;
-            std::cerr << "Particle pmax = " << pmax << std::endl;
-            printf("Computed pmin, pmax\n");
+            std::cout << "Particle pmin = " << pmin << std::endl;
+            std::cout << "Particle pmax = " << pmax << std::endl;
 
             bbox_min = make_float3(pmin.x, pmin.y, pmin.z);
             bbox_max = make_float3(pmax.x, pmax.y, pmax.z);
@@ -646,12 +635,12 @@ void loadParticles()
             if (fixed_radius == 0.f)
               fixed_radius = length(bbox_max - bbox_min) / powf(positions.size(), 0.333333f);  
 
-            std::cerr << "Using fixed_radius = " << fixed_radius << std::endl;
+            std::cout << "Using fixed_radius = " << fixed_radius << std::endl;
 
             bbox_min -= make_float3(fixed_radius);
             bbox_max += make_float3(fixed_radius);
 
-            std::cerr << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
+            std::cout << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
 
             float wRange = float( 1.0 / double(wmax - wmin) );
 
@@ -730,6 +719,8 @@ void setupParticles()
     geometry_group->addChild( geom_instance );
     
     Acceleration accel = context->createAcceleration( "Bvh8" );
+
+    //We only need to refit the BVH when the radius changes. However, in some versions of OptiX a full rebuild may be required.
     //accel->setProperty( "refit", "1" );
     geometry_group->setAcceleration( accel );
 
@@ -844,7 +835,7 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
             case( GLFW_KEY_S ):
             {
                 const std::string outputImage = std::string(SAMPLE_NAME) + ".png";
-                std::cerr << "Saving current frame to '" << outputImage << "'\n";
+                std::cout << "Saving current frame to '" << outputImage << "'\n";
                 sutil::writeBufferToFile( outputImage.c_str(), getOutputBuffer() );
                 handled = true;
                 break;
@@ -1053,8 +1044,8 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
 
 void printUsageAndExit( const std::string& argv0 )
 {
-    std::cerr << "\nUsage: " << argv0 << " [options]\n";
-    std::cerr <<
+    std::cout << "\nUsage: " << argv0 << " [options]\n";
+    std::cout <<
         "App Options:\n"
         "  -h | --help                         Print this usage message and exit.\n"
         "  -f | --file                         Save single frame to file and exit.\n"
@@ -1092,7 +1083,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << arg << "' requires additional argument.\n";
+                std::cout << "Option '" << arg << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             out_file = argv[++i];
@@ -1107,7 +1098,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             max_particles = atoi(argv[++i]);
@@ -1116,7 +1107,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             tf_type = atoi(argv[++i]);
@@ -1133,7 +1124,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             fixed_radius = atof( argv[++i] );
@@ -1143,7 +1134,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             slab_size = atof( argv[++i] );
@@ -1152,7 +1143,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             wScale = atof( argv[++i] );
@@ -1161,7 +1152,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             wExponent = atof( argv[++i] );
@@ -1170,7 +1161,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             opacity = atof( argv[++i] );
@@ -1183,7 +1174,7 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             particles_file = argv[++i];
@@ -1192,14 +1183,14 @@ int main( int argc, char** argv )
         {
             if( i == argc-1 )
             {
-                std::cerr << "Option '" << argv[i] << "' requires additional argument.\n";
+                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
             usage_report_level = atoi( argv[++i] );
         }
         else
         {
-            std::cerr << "Unknown option '" << arg << "'\n";
+            std::cout << "Unknown option '" << arg << "'\n";
             printUsageAndExit( argv[0] );
         }
     }
@@ -1213,7 +1204,7 @@ int main( int argc, char** argv )
         GLenum err = glewInit();
         if (err != GLEW_OK)
         {
-            std::cerr << "GLEW init failed: " << glewGetErrorString( err ) << std::endl;
+            std::cout << "GLEW init failed: " << glewGetErrorString( err ) << std::endl;
             exit(EXIT_FAILURE);
         }
 #endif
@@ -1243,7 +1234,7 @@ int main( int argc, char** argv )
             updateCamera();
             context->launch( 0, width, height );
             sutil::writeBufferToFile( out_file.c_str(), getOutputBuffer() );
-            std::cerr << "Wrote " << out_file << std::endl;
+            std::cout << "Wrote " << out_file << std::endl;
             destroyContext();
 
         }
