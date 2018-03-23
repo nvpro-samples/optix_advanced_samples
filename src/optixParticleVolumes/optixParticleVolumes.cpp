@@ -28,7 +28,9 @@
 
 //-----------------------------------------------------------------------------
 //
-// optixMeshViewer: simple interactive mesh viewer
+// optixParticleVolumes: 
+// RBF volume renderer for particle data. 
+// Also an example of how to compute and integrate "deep images" using OptiX.
 //
 //-----------------------------------------------------------------------------
 
@@ -102,8 +104,7 @@ bool            particles_file_velocities = false;
 bool            camera_slow_rotate = true;
 size_t          max_particles = 0;
 float           fixed_radius = 100.f;
-float           slab_size = 16.f;
-float           wExponent = 1.f;
+float           segment_size = 16.f;
 float           wScale = 3.5f;
 float           opacity = .5f;
 int             tf_type = 2;
@@ -395,6 +396,254 @@ Program createIntersectionProgram( Context context )
   return context->createProgramFromPTXFile( ptxPath("particles_geometry_rbf.cu"), "particle_intersect" );
 }
 
+void readFile( std::vector<float4>& positions, 
+               std::vector<float3>& velocities, 
+               std::vector<float3>& colors, 
+               std::vector<float>& radii, 
+               float3& bbox_min, 
+               float3& bbox_max )
+{
+	//read raw data file.
+    if (particles_file_extension == "raw")
+    {
+        std::cout << "Reading raw file" << particles_file << std::endl;
+
+        FILE* fp = fopen(particles_file.c_str(), "r");
+        fseek(fp, 0L, SEEK_END);
+        size_t sz = ftell(fp);
+        rewind(fp);
+
+        size_t numParticles = sz / 16;
+        std::cout << "# particles = " << numParticles << std::endl;
+
+        if (max_particles > 0 && numParticles > max_particles)
+        {
+          std::cout << "only reading " << max_particles << " particles." << std::endl;
+          numParticles = max_particles;
+        }
+
+        positions.resize(numParticles);
+        int b = fread(&positions[0], sizeof(float), numParticles, fp);
+        fclose(fp);
+
+        float4 pmin, pmax;
+
+        pmin.x = pmin.y = pmin.z = pmin.w = 1e16f;
+        pmax.x = pmax.y = pmax.z = pmax.w = -1e16f;
+
+        const float rd = fixed_radius;
+
+        #pragma omp parallel for
+        for(size_t i=0; i<numParticles; i++)
+        {
+            const float4& p = positions[i];
+
+            pmin.x = fminf(pmin.x, p.x);
+            pmin.y = fminf(pmin.y, p.y);
+            pmin.z = fminf(pmin.z, p.z);
+            pmin.w = fminf(pmin.w, p.w);
+
+            pmax.x = fmaxf(pmax.x, p.x);
+            pmax.y = fmaxf(pmax.y, p.y);
+            pmax.z = fmaxf(pmax.z, p.z);
+            pmax.w = fmaxf(pmax.w, p.w);
+        }
+
+        std::cout << "Particle pmin = " << pmin << std::endl;
+        std::cout << "Particle pmax = " << pmax << std::endl;
+
+        bbox_min = make_float3(pmin.x - rd, pmin.y - rd, pmin.z - rd);
+        bbox_max = make_float3(pmax.x + rd, pmax.y + rd, pmax.z + rd);
+
+        if (fixed_radius == 0.f)
+          fixed_radius = length(bbox_max - bbox_min) / powf(numParticles, 0.33333f);  
+
+        std::cout << "Particle fixed_radius = " << fixed_radius << std::endl;
+
+        float wRange, wOff;
+        if (pmin.w < 0.f)
+        {
+          if (-pmin.w > pmax.w)
+            wRange = float(0.5f / -pmin.w);
+          else
+            wRange = float(0.5f / pmax.w);
+
+          tf_type = 3;
+          wOff = .5f;
+        }
+        else
+        {
+          wRange = float( 1.0 / double(pmax.w - pmin.w) );
+          wOff = 0.f;
+        }
+
+        std::cout << "Transfer function tf_type = " << tf_type << std::endl;
+
+        #pragma omp parallel for
+        for(size_t i=0; i<numParticles; i++)
+            positions[i].w = positions[i].w * wRange + wOff;
+
+        float wmin = 1e16f;
+        float wmax = -1e16f;
+        for(size_t i=0; i<numParticles; i++){
+            wmin = fminf(wmin, positions[i].w);
+            wmax = fmaxf(wmax, positions[i].w);
+        }
+        std::cout << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
+    }
+     
+    //read txt data file
+    else
+    {
+        std::cout << "Reading txt file" << particles_file << std::endl;
+
+        std::string filename = particles_file_base;
+
+        if ( current_particle_frame > 0 ) {
+            std::ostringstream s;
+            s << current_particle_frame;
+
+            if ( current_particle_frame < 10 )
+                filename += ".000" + s.str() + ".txt";
+            else
+                filename += ".00" + s.str() + ".txt";
+        }
+        else
+            filename = particles_file_base;
+
+
+        std::ifstream ifs( filename.c_str() );
+
+        bbox_min.x = bbox_min.y = bbox_min.z = 1e16f;
+        bbox_max.x = bbox_max.y = bbox_max.z = -1e16f;
+
+        int maxchars = 8192;
+        std::vector<char> buf(static_cast<size_t>(maxchars)); // Alloc enough size
+
+        float wmin = 1e16f;
+        float wmax = -1e16f;
+
+        while ( ifs.peek() != -1 ) {
+            ifs.getline( &buf[0], maxchars );
+
+            std::string linebuf(&buf[0]);
+
+            // Trim newline '\r\n' or '\n'
+            if ( linebuf.size() > 0 ) {
+                if ( linebuf[linebuf.size() - 1] == '\n' )
+                    linebuf.erase(linebuf.size() - 1);
+            }
+
+            if ( linebuf.size() > 0 ) {
+                if ( linebuf[linebuf.size() - 1] == '\r' )
+                    linebuf.erase( linebuf.size() - 1 );
+            }
+
+            // Skip if empty line.
+            if ( linebuf.empty() ) {
+                continue;
+            }
+
+            // Skip leading space.
+            const char *token = linebuf.c_str();
+            token += strspn( token, " \t" );
+
+            assert( token );
+            if ( token[0] == '\0' )
+                continue; // empty line
+
+            if ( token[0] == '#' )
+                continue; // comment line
+
+            // meaningful line here. The expected format is: position, velocity, color and radius
+
+            // position
+            float x  = parseFloat( token );
+            float y  = parseFloat( token );
+            float z  = parseFloat( token );
+
+            // velocity
+            float vx = parseFloat( token );
+            float vy = parseFloat( token );
+            float vz = parseFloat( token );
+
+            float3 vel = make_float3(vx,vy,vz);
+            float vel_magnitude = length(vel);
+
+            wmin = fminf(wmin, vel_magnitude);
+            wmax = fmaxf(wmax, vel_magnitude);
+
+            float r,g,b;
+            r=g=b=.9f;
+
+            if (particles_file_colors)
+            {
+              // color
+              r  = parseFloat( token );
+              g  = parseFloat( token );
+              b  = parseFloat( token );
+            }
+            
+            float rd = fixed_radius;
+            if (particles_file_radius)
+            {
+              // radius
+              rd = parseFloat( token );
+            }
+
+            positions.push_back( make_float4( x, y, z, vel_magnitude ) );
+            velocities.push_back( make_float3( vx, vy, vz ) );
+            colors.push_back( make_float3( r, g, b ) );
+            radii.push_back( rd );
+        }
+
+        const int numParticles = positions.size();
+        std::cout << "# particles = " << numParticles << std::endl;
+
+        float4 pmin, pmax;
+        pmin.x = pmin.y = pmin.z = pmin.w = 1e16f;
+        pmax.x = pmax.y = pmax.z = pmax.w = -1e16f;
+
+        for(size_t i=0; i<numParticles; i++)
+        {
+            const float4& p = positions[i];
+
+            pmin.x = fminf(pmin.x, p.x);
+            pmin.y = fminf(pmin.y, p.y);
+            pmin.z = fminf(pmin.z, p.z);
+            pmin.w = fminf(pmin.w, p.w);
+
+            pmax.x = fmaxf(pmax.x, p.x);
+            pmax.y = fmaxf(pmax.y, p.y);
+            pmax.z = fmaxf(pmax.z, p.z);
+            pmax.w = fmaxf(pmax.w, p.w);
+        }
+
+        std::cout << "Particle pmin = " << pmin << std::endl;
+        std::cout << "Particle pmax = " << pmax << std::endl;
+
+        bbox_min = make_float3(pmin.x, pmin.y, pmin.z);
+        bbox_max = make_float3(pmax.x, pmax.y, pmax.z);
+
+        if (fixed_radius == 0.f)
+          fixed_radius = length(bbox_max - bbox_min) / powf(positions.size(), 0.333333f);  
+
+        std::cout << "Using fixed_radius = " << fixed_radius << std::endl;
+
+        bbox_min -= make_float3(fixed_radius);
+        bbox_max += make_float3(fixed_radius);
+
+        std::cout << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
+
+        float wRange = float( 1.0 / double(wmax - wmin) );
+
+        //#pragma omp parallel for
+        for(int i=0; i<positions.size(); i++)
+            positions[i].w = positions[i].w * wRange;
+    }
+
+}
+
 
 // loads up the particles file corresponding to the current frame (if it is a sequence)
 void loadParticles()
@@ -411,248 +660,10 @@ void loadParticles()
         std::vector<float3>& colors = newCacheEntry.colors;
         std::vector<float>&  radii = newCacheEntry.radii;
 
-	//read raw data file.
-        if (particles_file_extension == "raw")
-        {
-            std::cout << "Reading raw file" << particles_file << std::endl;
-
-            FILE* fp = fopen(particles_file.c_str(), "r");
-            fseek(fp, 0L, SEEK_END);
-            size_t sz = ftell(fp);
-            rewind(fp);
-
-            size_t numParticles = sz / 16;
-            std::cout << "# particles = " << numParticles << std::endl;
-
-            if (max_particles > 0 && numParticles > max_particles)
-            {
-              std::cout << "only reading " << max_particles << " particles." << std::endl;
-              numParticles = max_particles;
-            }
-
-            positions.resize(numParticles);
-            int b = fread(&positions[0], sizeof(float), numParticles, fp);
-            fclose(fp);
-
-            float4 pmin, pmax;
-
-            pmin.x = pmin.y = pmin.z = pmin.w = 1e16f;
-            pmax.x = pmax.y = pmax.z = pmax.w = -1e16f;
-
-            const float rd = fixed_radius;
-
-            #pragma omp parallel for
-            for(size_t i=0; i<numParticles; i++)
-            {
-                const float4& p = positions[i];
-
-                pmin.x = fminf(pmin.x, p.x);
-                pmin.y = fminf(pmin.y, p.y);
-                pmin.z = fminf(pmin.z, p.z);
-                pmin.w = fminf(pmin.w, p.w);
-
-                pmax.x = fmaxf(pmax.x, p.x);
-                pmax.y = fmaxf(pmax.y, p.y);
-                pmax.z = fmaxf(pmax.z, p.z);
-                pmax.w = fmaxf(pmax.w, p.w);
-            }
-
-            std::cout << "Particle pmin = " << pmin << std::endl;
-            std::cout << "Particle pmax = " << pmax << std::endl;
-
-            bbox_min = make_float3(pmin.x - rd, pmin.y - rd, pmin.z - rd);
-            bbox_max = make_float3(pmax.x + rd, pmax.y + rd, pmax.z + rd);
-
-            if (fixed_radius == 0.f)
-              fixed_radius = length(bbox_max - bbox_min) / powf(numParticles, 0.33333f);  
-
-            std::cout << "Particle fixed_radius = " << fixed_radius << std::endl;
-    
-            float wRange, wOff;
-            if (pmin.w < 0.f)
-            {
-              if (-pmin.w > pmax.w)
-                wRange = float(0.5f / -pmin.w);
-              else
-                wRange = float(0.5f / pmax.w);
-
-              tf_type = 3;
-              wOff = .5f;
-            }
-            else
-            {
-              wRange = float( 1.0 / double(pmax.w - pmin.w) );
-              wOff = 0.f;
-            }
-
-            std::cout << "Transfer function tf_type = " << tf_type << std::endl;
-
-            #pragma omp parallel for
-            for(size_t i=0; i<numParticles; i++)
-                positions[i].w = positions[i].w * wRange + wOff;
-
-            float wmin = 1e16f;
-            float wmax = -1e16f;
-            for(size_t i=0; i<numParticles; i++){
-                wmin = fminf(wmin, positions[i].w);
-                wmax = fmaxf(wmax, positions[i].w);
-            }
-            std::cout << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
-        } 
-	//read txt data file
-        else
-        {
-            std::cout << "Reading txt file" << particles_file << std::endl;
-
-            std::string filename = particles_file_base;
-
-            if ( current_particle_frame > 0 ) {
-                std::ostringstream s;
-                s << current_particle_frame;
-
-                if ( current_particle_frame < 10 )
-                    filename += ".000" + s.str() + ".txt";
-                else
-                    filename += ".00" + s.str() + ".txt";
-            }
-            else
-                filename = particles_file_base;
-
-
-            std::ifstream ifs( filename.c_str() );
-
-
-            bbox_min.x = bbox_min.y = bbox_min.z = 1e16f;
-            bbox_max.x = bbox_max.y = bbox_max.z = -1e16f;
-
-            int maxchars = 8192;
-            std::vector<char> buf(static_cast<size_t>(maxchars)); // Alloc enough size
-
-            float wmin = 1e16f;
-            float wmax = -1e16f;
-
-            while ( ifs.peek() != -1 ) {
-                ifs.getline( &buf[0], maxchars );
-
-                std::string linebuf(&buf[0]);
-
-                // Trim newline '\r\n' or '\n'
-                if ( linebuf.size() > 0 ) {
-                    if ( linebuf[linebuf.size() - 1] == '\n' )
-                        linebuf.erase(linebuf.size() - 1);
-                }
-
-                if ( linebuf.size() > 0 ) {
-                    if ( linebuf[linebuf.size() - 1] == '\r' )
-                        linebuf.erase( linebuf.size() - 1 );
-                }
-
-                // Skip if empty line.
-                if ( linebuf.empty() ) {
-                    continue;
-                }
-
-                // Skip leading space.
-                const char *token = linebuf.c_str();
-                token += strspn( token, " \t" );
-
-                assert( token );
-                if ( token[0] == '\0' )
-                    continue; // empty line
-
-                if ( token[0] == '#' )
-                    continue; // comment line
-
-                // meaningful line here. The expected format is: position, velocity, color and radius
-
-                // position
-                float x  = parseFloat( token );
-                float y  = parseFloat( token );
-                float z  = parseFloat( token );
-
-                // velocity
-                float vx = parseFloat( token );
-                float vy = parseFloat( token );
-                float vz = parseFloat( token );
-
-                float3 vel = make_float3(vx,vy,vz);
-                float vel_magnitude = length(vel);
-
-                wmin = fminf(wmin, vel_magnitude);
-                wmax = fmaxf(wmax, vel_magnitude);
-
-                float r,g,b;
-                r=g=b=.9f;
-
-                if (particles_file_colors)
-                {
-                  // color
-                  r  = parseFloat( token );
-                  g  = parseFloat( token );
-                  b  = parseFloat( token );
-                }
-                
-                float rd = fixed_radius;
-                if (particles_file_radius)
-                {
-                  // radius
-                  rd = parseFloat( token );
-                }
-
-                positions.push_back( make_float4( x, y, z, vel_magnitude ) );
-                velocities.push_back( make_float3( vx, vy, vz ) );
-                colors.push_back( make_float3( r, g, b ) );
-                radii.push_back( rd );
-            }
-
-            const int numParticles = positions.size();
-
-            float4 pmin, pmax;
-            pmin.x = pmin.y = pmin.z = pmin.w = 1e16f;
-            pmax.x = pmax.y = pmax.z = pmax.w = -1e16f;
-
-            for(size_t i=0; i<numParticles; i++)
-            {
-                const float4& p = positions[i];
-
-                pmin.x = fminf(pmin.x, p.x);
-                pmin.y = fminf(pmin.y, p.y);
-                pmin.z = fminf(pmin.z, p.z);
-                pmin.w = fminf(pmin.w, p.w);
-
-                pmax.x = fmaxf(pmax.x, p.x);
-                pmax.y = fmaxf(pmax.y, p.y);
-                pmax.z = fmaxf(pmax.z, p.z);
-                pmax.w = fmaxf(pmax.w, p.w);
-            }
-
-            std::cout << "Particle pmin = " << pmin << std::endl;
-            std::cout << "Particle pmax = " << pmax << std::endl;
-
-            bbox_min = make_float3(pmin.x, pmin.y, pmin.z);
-            bbox_max = make_float3(pmax.x, pmax.y, pmax.z);
-
-            if (fixed_radius == 0.f)
-              fixed_radius = length(bbox_max - bbox_min) / powf(positions.size(), 0.333333f);  
-
-            std::cout << "Using fixed_radius = " << fixed_radius << std::endl;
-
-            bbox_min -= make_float3(fixed_radius);
-            bbox_max += make_float3(fixed_radius);
-
-            std::cout << "Attribute range wmin = " << wmin << ", wmax = " << wmax << std::endl;
-
-            float wRange = float( 1.0 / double(wmax - wmin) );
-
-            //#pragma omp parallel for
-            for(int i=0; i<positions.size(); i++)
-                positions[i].w = positions[i].w * wRange;
-
-        }
+	    readFile(positions, velocities, colors, radii, bbox_min, bbox_max);
 
         context[ "fixed_radius"     ]->setFloat(fixed_radius);
-        context[ "slab_size"     ]->setFloat(slab_size);
-        context[ "wExponent" ] ->setFloat(wExponent);
+        context[ "segment_size"     ]->setFloat(segment_size);
         context[ "wScale" ] ->setFloat(wScale);
         context[ "opacity" ] ->setFloat(opacity);
         context[ "tf_type" ]->setInt(tf_type);
@@ -668,9 +679,7 @@ void loadParticles()
     ParticleFrameData& cacheEntry = cacheIt->second;
 
     // all vectors have the same size
-    const int num_particles = (int) cacheEntry.positions.size();
-
-    geometry->setPrimitiveCount( num_particles );
+    geometry->setPrimitiveCount( (int) cacheEntry.positions.size() );
 
     // fills up the buffers
     fillBuffers( cacheEntry.positions, cacheEntry.velocities, cacheEntry.colors, cacheEntry.radii );
@@ -848,6 +857,13 @@ void keyCallback( GLFWwindow* window, int key, int scancode, int action, int mod
                handled = true;
                break;
             }
+            case( GLFW_KEY_SPACE ):
+            {
+	       camera_slow_rotate = !camera_slow_rotate;
+               handled = true;
+               break;
+            }
+
         }
     }
 
@@ -974,13 +990,6 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
               accel->markDirty();
             }
         
-
-            static float wExponentLog10 = 0.f;
-            if (ImGui::SliderFloat( "attribute exponent (log10 scale)", &wExponentLog10, -2.f, 2.f ) ) {
-              wExponent = powf(10.f, wExponentLog10);  
-              context[ "wExponent" ] ->setFloat(wExponent);
-            }
-
             if (ImGui::SliderFloat( "attribute scale", &wScale, .1f, 10.f ) ) {
               context[ "wScale" ] ->setFloat(wScale);
             }
@@ -989,7 +998,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
               context[ "opacity"     ]->setFloat(opacity);
             }
 
-            if (ImGui::SliderInt( "transfer function type", &tf_type, 0, 3 ) ) {
+            if (ImGui::SliderInt( "transfer function preset", &tf_type, 1, 3 ) ) {
               context[ "tf_type" ] ->setInt(tf_type);
             }
 
@@ -1053,7 +1062,6 @@ void printUsageAndExit( const std::string& argv0 )
         "  -p | --particles <particles_file>   Specify path to particles file to be loaded.\n"
         "  -r | --report <LEVEL>               Enable usage reporting and report level [1-3].\n"
         "  --no-rotate                         Disable camera rotation (default on).\n"
-        "  --wExponent <float>                 Rescale particle attribute range by this exponent.\n"
         "  --wScale <float>                    Rescale particle attribute range by a fixed multiple.\n"
         "  --opacity <float>                   Opacity scale (alpha) for each particle.\n"
         "  --fixed_radius <float>              Specify default (world space) radius of a particle.\n"
@@ -1130,14 +1138,14 @@ int main( int argc, char** argv )
             fixed_radius = atof( argv[++i] );
         }
 
-        else if( arg == "--slab_size"  )
+        else if( arg == "--segment_size"  )
         {
             if( i == argc-1 )
             {
                 std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
-            slab_size = atof( argv[++i] );
+            segment_size = atof( argv[++i] );
         }
         else if( arg == "--wScale"  )
         {
@@ -1147,15 +1155,6 @@ int main( int argc, char** argv )
                 printUsageAndExit( argv[0] );
             }
             wScale = atof( argv[++i] );
-        }
-        else if( arg == "--wExponent"  )
-        {
-            if( i == argc-1 )
-            {
-                std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
-                printUsageAndExit( argv[0] );
-            }
-            wExponent = atof( argv[++i] );
         }
         else if( arg == "--opacity"  )
         {

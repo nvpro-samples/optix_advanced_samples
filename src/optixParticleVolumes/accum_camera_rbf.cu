@@ -55,8 +55,7 @@ rtDeclareVariable(float3,        bbox_min, , );
 rtDeclareVariable(float3,        bbox_max, , );
 
 rtDeclareVariable(float,         opacity, , );
-rtDeclareVariable(float,         slab_size, , );
-rtDeclareVariable(float,         wExponent, , );
+rtDeclareVariable(float,         segment_size, , );
 rtDeclareVariable(float,         wScale, , );
 
 
@@ -76,16 +75,15 @@ __device__ float4 tf(float v)
     else
       return lerp( make_float4(1,1,1,0.5f), make_float4(1,0,0,1), v * 2.f - 1.f);
   }
-  else if (tf_type == 3)
+  else
   {
-    //for signed data
-    if (v < .5f)
-      return lerp( make_float4(1,1,0,0.5f), make_float4(1,1,1,0), v * 2.f);
+    if (v < .33f)
+      return lerp( make_float4(1,0,1,0), make_float4(0,0,1,0.33f), (v-0.f) * 3.f);
+    else if (v < .66f)
+      return lerp( make_float4(0,0,1,.33f), make_float4(0,1,1,0.66f), (v-0.33f) * 3.f);
     else
-      return lerp( make_float4(1,1,1,0), make_float4(1,0,0,1), v * 2.f - 1.f);
+      return lerp( make_float4(0,1,0,0.5f), make_float4(1,1,1,1), (v-0.66f) * 3.f);
   }
-
-  return lerp( make_float4(0,0,1,0), make_float4(1,0,0,1), v);
 }
 
 RT_PROGRAM void pinhole_camera()
@@ -104,7 +102,8 @@ RT_PROGRAM void pinhole_camera()
 
   PerRayData_radiance_rbf prd;
 
-  //ray-AABB intersection to determine number of slabs
+  //ray-AABB intersection to determine number of segments
+ 
   float3 t0, t1, tmin, tmax;
   t0 = (bbox_max - ray_origin) / ray_direction;
   t1 = (bbox_min - ray_origin) / ray_direction;
@@ -113,7 +112,7 @@ RT_PROGRAM void pinhole_camera()
   float tenter = fmaxf(0.f, fmaxf(tmin.x, fmaxf(tmin.y, tmin.z)));
   float texit = fminf(tmax.x, fminf(tmax.y, tmax.z));
 
-  float spacing = (RBF_SAMPLES * slab_size) * fixed_radius;
+  float spacing = (RBF_SAMPLES * segment_size) * fixed_radius;
 
   float3 result = make_float3(0);
   float result_alpha = 0.f;
@@ -122,6 +121,11 @@ RT_PROGRAM void pinhole_camera()
   {
     float tbuffer = 0.f;
 
+    //for each segment, 
+    //  traverse the BVH (collect deep samples in prd.rbfs), 
+    //  sort,
+    //  integrate.
+    
     while(tbuffer < texit && result_alpha < 0.97f)
     {
       prd.rbfi = 0;
@@ -176,7 +180,7 @@ RT_PROGRAM void pinhole_camera()
           float4 pos = positions_buffer[idx];
           float3 hit_normal = make_float3(pos.x, pos.y, pos.z) - hit_sample;
           float drbf = length(hit_normal) * inv_fixed_radius_scale;
-          drbf = fmaxf(0.f, fminf(1.f, powf(wScale * pos.w, wExponent) * exp(-drbf*drbf)));
+          drbf = fmaxf(0.f, fminf(1.f, wScale * pos.w * exp(-drbf*drbf)));
           float4 color_sample = tf(drbf);
 
           float alpha = color_sample.w * opacity;
