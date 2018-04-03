@@ -42,7 +42,7 @@
 
 #include "shaders/material_parameter.h"
 
-// DAR Only for sutil::samplesPTXDir()
+// DAR Only for sutil::samplesPTXDir() and sutil::writeBufferToFile()
 #include <sutil.h>
 
 #include "inc/MyAssert.h"
@@ -526,6 +526,7 @@ void Application::restartAccumulation()
 bool Application::render()
 {
   bool repaint = false;
+
   try
   {
     optix::float3 cameraPosition;
@@ -534,7 +535,6 @@ bool Application::render()
     optix::float3 cameraW;
 
     bool cameraChanged = m_pinholeCamera.getFrustum(cameraPosition, cameraU, cameraV, cameraW);
-
     if (cameraChanged)
     {
       m_context["sysCameraPosition"]->setFloat(cameraPosition);
@@ -614,6 +614,7 @@ void Application::display()
 {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
+
   glUseProgram(m_glslProgram);
 
   glBegin(GL_QUADS);
@@ -630,6 +631,11 @@ void Application::display()
   glUseProgram(0);
 }
 
+void Application::screenshot(std::string const& filename)
+{
+  sutil::writeBufferToFile(filename.c_str(), m_bufferOutput);
+  std::cerr << "Wrote " << filename << std::endl;
+}
 
 // Helper functions:
 void Application::checkInfoLog(const char *msg, GLuint object)
@@ -1093,7 +1099,6 @@ optix::Geometry Application::createGeometry(std::vector<VertexAttributes> const&
 }
 
 
-
 void Application::initPrograms()
 {
   try
@@ -1289,7 +1294,7 @@ void Application::initMaterials()
 
   // Lambert material for the floor.
   parameters.indexBSDF           = INDEX_BSDF_DIFFUSE_REFLECTION; // Index into sysSampleBSDF and sysEvalBSDF.
-  parameters.albedo              = optix::make_float3(0.5f); // Grey. Modulates the albedo texture.)
+  parameters.albedo              = optix::make_float3(0.5f); // Grey. Modulates the albedo texture.
   parameters.useAlbedoTexture    = true;
   parameters.useCutoutTexture    = false;
   parameters.thinwalled          = false;
@@ -1547,7 +1552,7 @@ void Application::createScene()
     float trafoSphere[16] =
     {
       1.0f, 0.0f, 0.0f, 0.0f,  // In the center, to the right of the box.
-      0.0f, 1.0f, 0.0f, 1.25f, // The sphere is modeled with radius 1.0f. Move it above the floor plane.
+      0.0f, 1.0f, 0.0f, 1.25f, // The sphere is modeled with radius 1.0f. Move it above the floor plane to show shadows.
       0.0f, 0.0f, 1.0f, 0.0f,
       0.0f, 0.0f, 0.0f, 1.0f
     };
@@ -1690,7 +1695,7 @@ void Application::createLights()
     optix::float3 n = optix::cross(light.vecU, light.vecV);   // Length of the cross product is the area.
     light.area     = optix::length(n);                        // Calculate the world space area of that rectangle. (25 m^2)
     light.normal   = n / light.area;                          // Normalized normal
-    light.emission = optix::make_float3(100.0f);               // Radiant exitance in Watt/m^2.
+    light.emission = optix::make_float3(100.0f);              // Radiant exitance in Watt/m^2.
 
     int lightIndex = int(m_lightDefinitions.size()); // This becomes this light's parLightIndex value.
     m_lightDefinitions.push_back(light);

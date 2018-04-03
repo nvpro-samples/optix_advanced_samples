@@ -113,12 +113,10 @@ public:
 
   void reshape(int width, int height);
 
-  //std::string loadStringFromFile(const std::string& filename);
-  //bool saveStringToFile(const std::string& filename, const std::string& data);
-  //std::string getDateTime();
-
   bool render();
   void display();
+  
+  void screenshot(std::string const& filename);
 
   void guiNewFrame();
   void guiWindow();
@@ -197,7 +195,7 @@ private:
   std::map<std::string, optix::Program> m_mapOfPrograms;
 
   // The material parameters exposed inside the GUI are slightly different than the resulting values for the device.
-  // The GUI exoposes an absorption color and a distance scale, and the thin-walled property as bool.
+  // The GUI exposes an absorption color and a distance scale, and the thin-walled property as bool.
   // These are converted on the fly into the device side sysMaterialParameters buffer.
   std::vector<MaterialParameterGUI> m_guiMaterialParameters;
   optix::Buffer                     m_bufferMaterialParameters; // Array of MaterialParameters.
@@ -211,7 +209,6 @@ private:
   optix::Buffer m_bufferSampleBSDF;
   optix::Buffer m_bufferEvalBSDF;
   optix::Buffer m_bufferSampleLight;
-  //optix::Buffer m_bufferEvalEDF; // DAR Not needed when handling lights separately.
 
   bool   m_present; // This controls if the texture image is updated per launch or only once a second.
   bool   m_presentNext;
@@ -246,12 +243,12 @@ private:
   std::vector<LightDefinition> m_lightDefinitions;
   optix::Buffer                m_bufferLightDefinitions;
 
-  // There are only three types of materials in this demo.
-  // The material parameters for these are determined by the parMateralIndex variable on the GeometryInstance.
+  // There are only two types of materials in this demo.
+  // The material parameters for these are determined by the parMaterialIndex variable on the GeometryInstance.
   optix::Material m_opaqueMaterial; // Used for all materials without cutout opacity.
   optix::Material m_lightMaterial;  // Used for all geometric lights. (Special cased diffuse emission distribution function to simplify the material system.)
-  
-  // DAR HACK Hardcoded scene elements.
+
+  // The root node of the OptiX scene graph (sysTopObject)
   optix::Group        m_rootGroup;
   optix::Acceleration m_rootAcceleration;
 };

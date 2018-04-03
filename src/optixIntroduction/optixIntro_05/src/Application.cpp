@@ -42,7 +42,7 @@
 
 #include "shaders/material_parameter.h"
 
-// DAR Only for sutil::samplesPTXDir()
+// DAR Only for sutil::samplesPTXDir() and sutil::writeBufferToFile()
 #include <sutil.h>
 
 #include "inc/MyAssert.h"
@@ -514,6 +514,7 @@ void Application::restartAccumulation()
 bool Application::render()
 {
   bool repaint = false;
+
   try
   {
     optix::float3 cameraPosition;
@@ -522,7 +523,6 @@ bool Application::render()
     optix::float3 cameraW;
 
     bool cameraChanged = m_pinholeCamera.getFrustum(cameraPosition, cameraU, cameraV, cameraW);
-
     if (cameraChanged)
     {
       m_context["sysCameraPosition"]->setFloat(cameraPosition);
@@ -602,6 +602,7 @@ void Application::display()
 {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
+
   glUseProgram(m_glslProgram);
 
   glBegin(GL_QUADS);
@@ -618,6 +619,11 @@ void Application::display()
   glUseProgram(0);
 }
 
+void Application::screenshot(std::string const& filename)
+{
+  sutil::writeBufferToFile(filename.c_str(), m_bufferOutput);
+  std::cerr << "Wrote " << filename << std::endl;
+}
 
 // Helper functions:
 void Application::checkInfoLog(const char *msg, GLuint object)
@@ -869,7 +875,7 @@ void Application::guiWindow()
 
     for (int i = 0; i < int(m_guiMaterialParameters.size()); ++i)
     {
-      if (ImGui::TreeNode((void*)(intptr_t) i, "Material %d", i)) // DAR FIXME No need for the (intptr_t) cast.
+      if (ImGui::TreeNode((void*)(intptr_t) i, "Material %d", i))
       {
         MaterialParameterGUI& parameters = m_guiMaterialParameters[i];
 
@@ -940,7 +946,7 @@ void Application::guiEventHandler()
   switch (m_guiState)
   {
     case GUI_STATE_NONE:
-      if (!io.WantCaptureMouse) // Only allow camera interactions to begin when interacting with the GUI.
+      if (!io.WantCaptureMouse) // Only allow camera interactions to begin when not interacting with the GUI.
       {
         if (ImGui::IsMouseDown(0)) // LMB down event?
         {
@@ -1040,7 +1046,6 @@ optix::Geometry Application::createGeometry(std::vector<VertexAttributes> const&
   }
   return geometry;
 }
-
 
 
 void Application::initPrograms()
@@ -1305,7 +1310,7 @@ void Application::createScene()
     float trafoSphere[16] =
     {
       1.0f, 0.0f, 0.0f, 0.0f,  // In the center, to the right of the box.
-      0.0f, 1.0f, 0.0f, 1.25f, // The sphere is modeled with radius 1.0f. Move it above the floor plane.
+      0.0f, 1.0f, 0.0f, 1.25f, // The sphere is modeled with radius 1.0f. Move it above the floor plane to show shadows.
       0.0f, 0.0f, 1.0f, 0.0f,
       0.0f, 0.0f, 0.0f, 1.0f
     };

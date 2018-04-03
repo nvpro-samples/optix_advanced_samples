@@ -98,6 +98,8 @@ public:
 
   bool render();
   void display();
+  
+  void screenshot(std::string const& filename);
 
   void guiNewFrame();
   void guiWindow();

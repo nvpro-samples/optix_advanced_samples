@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "shaders/app_config.h"
+
 #include "inc/Application.h"
 
 #include <optix.h>
@@ -33,10 +35,11 @@
 #include <optixu/optixu_math_namespace.h>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 
-// DAR Only for sutil::samplesPTXDir()
+// DAR Only for sutil::samplesPTXDir() and sutil::writeBufferToFile()
 #include <sutil.h>
 
 #include "inc/MyAssert.h"
@@ -305,7 +308,6 @@ void Application::initOpenGL()
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // DAR ImGui has been changed to push the GL_TEXTURE_BIT so that this works. 
@@ -367,6 +369,7 @@ void Application::initRenderer()
   {
     m_context->setEntryPointCount(1); // 0 = render
     m_context->setRayTypeCount(0);    // This initial demo is not shooting any rays.
+
     m_context->setStackSize(m_stackSize);
     std::cout << "stackSize = " << m_stackSize << std::endl;
 
@@ -398,7 +401,6 @@ void Application::initRenderer()
     MY_ASSERT(it != m_mapOfPrograms.end()); 
     m_context->setExceptionProgram(0, it->second); // entrypoint
 
-    //m_context->validate();
   }
   catch(optix::Exception& e)
   {
@@ -459,7 +461,11 @@ void Application::display()
   glUseProgram(0);
 }
 
-
+void Application::screenshot(std::string const& filename)
+{
+  sutil::writeBufferToFile(filename.c_str(), m_bufferOutput);
+  std::cerr << "Wrote " << filename << std::endl;
+}
 
 // Helper functions:
 void Application::checkInfoLog(const char *msg, GLuint object)
@@ -577,8 +583,8 @@ void Application::initGLSL()
     if (programLinked)
     {
       glUseProgram(m_glslProgram);
-
-      glUniform1i(glGetUniformLocation(m_glslProgram, "samplerHDR"), 0);       // texture image unit 0
+     
+      glUniform1i(glGetUniformLocation(m_glslProgram, "samplerHDR"), 0); // texture image unit 0
 
       glUseProgram(0);
     }

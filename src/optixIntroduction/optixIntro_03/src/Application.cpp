@@ -40,13 +40,17 @@
 #include <iostream>
 #include <sstream>
 
-// DAR Only for sutil::samplesPTXDir()
+// DAR Only for sutil::samplesPTXDir() and sutil::writeBufferToFile()
 #include <sutil.h>
 
 #include "inc/MyAssert.h"
 
 const char* const SAMPLE_NAME = "optixIntro_03";
 
+// This only runs inside the OptiX Advanced Samples location,
+// unless the environment variable OPTIX_SAMPLES_SDK_PTX_DIR is set.
+// A standalone application which should run anywhere would place the *.ptx files 
+// into a subdirectory next to the executable and use a relative file path here!
 static std::string ptxPath(std::string const& cuda_file)
 {
   return std::string(sutil::samplesPTXDir()) + std::string("/") + 
@@ -312,13 +316,11 @@ void Application::initOpenGL()
   MY_ASSERT(m_hdrTexture != 0);
 
   glActiveTexture(GL_TEXTURE0);
-
   glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // DAR ImGui has been changed to push the GL_TEXTURE_BIT so that this works. 
@@ -381,6 +383,7 @@ void Application::initRenderer()
   {
     m_context->setEntryPointCount(1); // 0 = render
     m_context->setRayTypeCount(1);    // 0 = radiance
+    
     m_context->setStackSize(m_stackSize);
     std::cout << "stackSize = " << m_stackSize << std::endl;
 
@@ -462,6 +465,7 @@ void Application::initScene()
 bool Application::render()
 {
   bool repaint = false;
+
   try
   {
     optix::float3 cameraPosition;
@@ -470,7 +474,6 @@ bool Application::render()
     optix::float3 cameraW;
 
     bool cameraChanged = m_pinholeCamera.getFrustum(cameraPosition, cameraU, cameraV, cameraW);
-
     if (cameraChanged)
     {
       m_context["sysCameraPosition"]->setFloat(cameraPosition);
@@ -482,7 +485,8 @@ bool Application::render()
     m_context->launch(0, m_width, m_height);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_hdrTexture); // Manual accumulation always renders into the m_hdrTexture.
+    glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
+
     if (m_interop) 
     {
       glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_bufferOutput->getGLBOId());
@@ -509,6 +513,7 @@ void Application::display()
 {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
+
   glUseProgram(m_glslProgram);
 
   glBegin(GL_QUADS);
@@ -525,7 +530,11 @@ void Application::display()
   glUseProgram(0);
 }
 
-
+void Application::screenshot(std::string const& filename)
+{
+  sutil::writeBufferToFile(filename.c_str(), m_bufferOutput);
+  std::cerr << "Wrote " << filename << std::endl;
+}
 
 // Helper functions:
 void Application::checkInfoLog(const char *msg, GLuint object)
@@ -642,7 +651,9 @@ void Application::initGLSL()
     if (programLinked)
     {
       glUseProgram(m_glslProgram);
+     
       glUniform1i(glGetUniformLocation(m_glslProgram, "samplerHDR"), 0); // texture image unit 0
+
       glUseProgram(0);
     }
   }
@@ -696,7 +707,7 @@ void Application::guiEventHandler()
   switch (m_guiState)
   {
     case GUI_STATE_NONE:
-      if (!io.WantCaptureMouse) // Only allow camera interactions to begin when interacting with the GUI.
+      if (!io.WantCaptureMouse) // Only allow camera interactions to begin when not interacting with the GUI.
       {
         if (ImGui::IsMouseDown(0)) // LMB down event?
         {
@@ -907,7 +918,7 @@ void Application::createScene()
     m_rootGroup->setChildCount(count + 1);
     m_rootGroup->setChild(count, trPlane);
 
-    // Add a tessellated sphere wwith 180 longitudes and 90 latitudes (32400 triangles). with radius 1.0f around the origin.
+    // Add a tessellated sphere with 180 longitudes and 90 latitudes (32400 triangles) with radius 1.0f around the origin.
     // The last argument is the maximum theta angle, which allows to generate spheres with a whole at the top.
     // (Useful to test thin-walled materials with different materials on the front- and backface.)
     optix::Geometry geoSphere = createSphere(180, 90, 1.0f, M_PIf);

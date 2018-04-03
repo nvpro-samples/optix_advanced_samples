@@ -125,6 +125,8 @@ public:
   bool render();
   void display();
 
+  void screenshot(std::string const& filename);
+
   void guiNewFrame();
   void guiWindow();
   void guiEventHandler();
@@ -202,7 +204,7 @@ private:
   std::map<std::string, optix::Program> m_mapOfPrograms;
 
   // The material parameters exposed inside the GUI are slightly different than the resulting values for the device.
-  // The GUI exoposes an absorption color and a distance scale, and the thin-walled property as bool.
+  // The GUI exposes an absorption color and a distance scale, and the thin-walled property as bool.
   // These are converted on the fly into the device side sysMaterialParameters buffer.
   std::vector<MaterialParameterGUI> m_guiMaterialParameters;
   optix::Buffer                     m_bufferMaterialParameters; // Array of MaterialParameters.
@@ -257,7 +259,7 @@ private:
   Texture m_textureCutout;
 
   // There are only three types of materials in this demo.
-  // The material parameters for these are determined by the parMateralIndex variable on the GeometryInstance.
+  // The material parameters for these are determined by the parMaterialIndex variable on the GeometryInstance.
   optix::Material m_opaqueMaterial; // Used for all materials without cutout opacity.
   optix::Material m_cutoutMaterial; // Used for all materials with cutout opacity.
   optix::Material m_lightMaterial;  // Used for all geometric lights. (Special cased diffuse emission distribution function to simplify the material system.)

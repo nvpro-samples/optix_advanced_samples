@@ -85,7 +85,7 @@ enum GuiState
 
 // Host side GUI material parameters.
 // (The separation between host side GUI parameters and the MaterialParameters struct on device side 
-//  will become clearer in later examples, where GUI parameters are not just copied´to the buffer.)
+//  will become clearer in later examples, where GUI parameters are not just copied to the buffer.)
 struct MaterialParameterGUI
 {
   optix::float3 albedo; // albedo, color, tint, throughput change for specular materials.
@@ -111,6 +111,8 @@ public:
 
   bool render();
   void display();
+  
+  void screenshot(std::string const& filename);
 
   void guiNewFrame();
   void guiWindow();
@@ -187,7 +189,7 @@ private:
   std::map<std::string, optix::Program> m_mapOfPrograms;
 
   // The material parameters exposed inside the GUI are slightly different than the resulting values for the device.
-  // The GUI exoposes an absorption color and a distance scale, and the thin-walled property as bool.
+  // The GUI exposes an absorption color and a distance scale, and the thin-walled property as bool.
   // These are converted on the fly into the device side sysMaterialParameters buffer.
   std::vector<MaterialParameterGUI> m_guiMaterialParameters;
   optix::Buffer                     m_bufferMaterialParameters; // Array of MaterialParameters.

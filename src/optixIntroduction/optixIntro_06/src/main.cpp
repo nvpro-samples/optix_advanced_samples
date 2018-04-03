@@ -74,6 +74,7 @@ void printUsage(const std::string& argv0)
     "  -l | --light           Add an area light to the scene.\n"
     "  -m | --miss  <0|1>     Select the miss shader (0 = black, 1 = white).\n"
     "  -s | --stack <int>     Set the OptiX stack size (1024) (debug feature).\n"
+    "  -f | --file <filename> Save image to file and exit.\n"
   "App Keystrokes:\n"
   "  SPACE  Toggles ImGui display.\n"
   "\n"
@@ -90,6 +91,9 @@ int main(int argc, char *argv[])
   int  stackSize    = 1024;  // Command line parameter just to be able to find the smallest working size.
   bool light        = false; // Add a geometric are light. Best used with miss 0 and 1.
   int  miss         = 1;     // Select the environment light (0 = black, no light; 1 = constant white environment; 3 = spherical environment texture.
+
+  std::string filenameScreenshot;
+  bool hasGUI = true;
   
   // Parse the command line parameters.
   for (int i = 1; i < argc; ++i)
@@ -163,6 +167,17 @@ int main(int argc, char *argv[])
     {
       light = true;
     }
+    else if (arg == "-f" || arg == "--file")
+    {
+      if (i == argc - 1)
+      { 
+        std::cerr << "Option '" << arg << "' requires additional argument.\n";
+        printUsage(argv[0]);
+        return 0;
+      }
+      filenameScreenshot = argv[++i];
+      hasGUI = false; // Do not render the GUI when just taking a screenshot. (Automated QA feature.)
+    }
     else
     {
       std::cerr << "Unknown option '" << arg << "'\n";
@@ -192,6 +207,7 @@ int main(int argc, char *argv[])
   if (glewInit() != GL_NO_ERROR)
   {
     error_callback(3, "GLEW failed to initialize.");
+    glfwTerminate();
     return 3;
   }
 
@@ -201,6 +217,7 @@ int main(int argc, char *argv[])
   if (!g_app->isValid())
   {
     error_callback(4, "Application initialization failed.");
+    glfwTerminate();
     return 4;
   }
 
@@ -213,20 +230,33 @@ int main(int argc, char *argv[])
     
     g_app->reshape(windowWidth, windowHeight);
 
-    g_app->guiNewFrame();
+    if (hasGUI)
+    {
+      g_app->guiNewFrame();
     
-    //g_app->guiReferenceManual(); // DAR HACK The ImGui "Programming Manual" as example code.
+      //g_app->guiReferenceManual(); // DAR HACK The ImGui "Programming Manual" as example code.
     
-    g_app->guiWindow(); // The OptiX tutorial example GUI window.
+      g_app->guiWindow(); // The OptiX introduction example GUI window.
 
-    g_app->guiEventHandler();
+      g_app->guiEventHandler(); // Currently only reacting on SPACE to toggle the GUI window.
 
-    g_app->render();  // OptiX rendering and OpenGL texture update.
-    g_app->display(); // OpenGL display.
+      g_app->render();  // OptiX rendering and OpenGL texture update.
+      g_app->display(); // OpenGL display.
 
-    g_app->guiRender(); // Render all ImGUI elements at last.
+      g_app->guiRender(); // Render all ImGUI elements at last.
 
-    glfwSwapBuffers(window);
+      glfwSwapBuffers(window);
+    }
+    else
+    {
+      for (int i = 0; i < 64; ++i) // Accumulate 64 samples per pixel.
+      {
+        g_app->render();  // OptiX rendering and OpenGL texture update.
+      }
+      g_app->screenshot(filenameScreenshot);
+
+      glfwSetWindowShouldClose(window, 1);
+    }
     
     //glfwWaitEvents(); // Render only when an event is happening. Needs some glfwPostEmptyEvent() to prevent GUI lagging one frame behind when ending an action.
   }

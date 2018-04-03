@@ -42,7 +42,7 @@
 
 #include "shaders/material_parameter.h"
 
-// DAR Only for sutil::samplesPTXDir()
+// DAR Only for sutil::samplesPTXDir() and sutil::writeBufferToFile()
 #include <sutil.h>
 
 #include "inc/MyAssert.h"
@@ -251,6 +251,7 @@ void Application::guiRender()
   ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
+
 void Application::getSystemInformation()
 {
   unsigned int optixVersion;
@@ -354,7 +355,6 @@ void Application::initOpenGL()
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
   glBindTexture(GL_TEXTURE_2D, 0);
 
   // DAR ImGui has been changed to push the GL_TEXTURE_BIT so that this works. 
@@ -417,7 +417,7 @@ void Application::initRenderer()
   {
     m_context->setEntryPointCount(1); // 0 = render // Tonemapper is a GLSL shader in this case.
     m_context->setRayTypeCount(1);    // 0 = radiance
-
+    
     m_context->setStackSize(m_stackSize);
     std::cout << "stackSize = " << m_stackSize << std::endl;
 
@@ -512,6 +512,7 @@ void Application::restartAccumulation()
 bool Application::render()
 {
   bool repaint = false;
+
   try
   {
     optix::float3 cameraPosition;
@@ -520,7 +521,6 @@ bool Application::render()
     optix::float3 cameraW;
 
     bool cameraChanged = m_pinholeCamera.getFrustum(cameraPosition, cameraU, cameraV, cameraW);
-
     if (cameraChanged)
     {
       m_context["sysCameraPosition"]->setFloat(cameraPosition);
@@ -600,6 +600,7 @@ void Application::display()
 {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
+
   glUseProgram(m_glslProgram);
 
   glBegin(GL_QUADS);
@@ -616,6 +617,11 @@ void Application::display()
   glUseProgram(0);
 }
 
+void Application::screenshot(std::string const& filename)
+{
+  sutil::writeBufferToFile(filename.c_str(), m_bufferOutput);
+  std::cerr << "Wrote " << filename << std::endl;
+}
 
 // Helper functions:
 void Application::checkInfoLog(const char *msg, GLuint object)
@@ -757,6 +763,7 @@ void Application::initGLSL()
       glUniform1f(glGetUniformLocation(m_glslProgram, "burnHighlights"), m_burnHighlights);
       glUniform1f(glGetUniformLocation(m_glslProgram, "crushBlacks"), m_crushBlacks + m_crushBlacks + 1.0f);
       glUniform1f(glGetUniformLocation(m_glslProgram, "saturation"), m_saturation);
+
       glUseProgram(0);
     }
   }
@@ -906,7 +913,7 @@ void Application::guiEventHandler()
   switch (m_guiState)
   {
     case GUI_STATE_NONE:
-      if (!io.WantCaptureMouse) // Only allow camera interactions to begin when interacting with the GUI.
+      if (!io.WantCaptureMouse) // Only allow camera interactions to begin when not interacting with the GUI.
       {
         if (ImGui::IsMouseDown(0)) // LMB down event?
         {
@@ -1006,7 +1013,6 @@ optix::Geometry Application::createGeometry(std::vector<VertexAttributes> const&
   }
   return geometry;
 }
-
 
 
 void Application::initPrograms()

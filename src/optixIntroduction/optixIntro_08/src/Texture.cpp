@@ -125,7 +125,7 @@ bool Texture::createSampler(optix::Context context,
 
   if (image == nullptr)
   {
-    std::cerr << "ERROR: createTextureSamplerAndBuffer() Picture doesn't contain image fopr LOD 0 of face 0." << std::endl;
+    std::cerr << "ERROR: createTextureSamplerAndBuffer() Picture doesn't contain image for LOD 0 of face 0." << std::endl;
     return success;
   }
 

@@ -35,10 +35,11 @@
 #include <optixu/optixu_math_namespace.h>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 
-// DAR Only for sutil::samplesPTXDir()
+// DAR Only for sutil::samplesPTXDir() and sutil::writeBufferToFile()
 #include <sutil.h>
 
 #include "inc/MyAssert.h"
@@ -213,6 +214,7 @@ void Application::guiRender()
   ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 }
 
+
 void Application::getSystemInformation()
 {
   unsigned int optixVersion;
@@ -378,7 +380,7 @@ void Application::initRenderer()
   {
     m_context->setEntryPointCount(1); // 0 = render
     m_context->setRayTypeCount(1);    // 0 = radiance
-    
+
     m_context->setStackSize(m_stackSize);
     std::cout << "stackSize = " << m_stackSize << std::endl;
 
@@ -469,7 +471,7 @@ bool Application::render()
     m_context->launch(0, m_width, m_height);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_hdrTexture); // Manual accumulation always renders into the m_hdrTexture.
+    glBindTexture(GL_TEXTURE_2D, m_hdrTexture);
 
     if (m_interop) 
     {
@@ -514,7 +516,11 @@ void Application::display()
   glUseProgram(0);
 }
 
-
+void Application::screenshot(std::string const& filename)
+{
+  sutil::writeBufferToFile(filename.c_str(), m_bufferOutput);
+  std::cerr << "Wrote " << filename << std::endl;
+}
 
 // Helper functions:
 void Application::checkInfoLog(const char *msg, GLuint object)
