@@ -139,7 +139,8 @@ RT_FUNCTION void integrator(PerRayData& prd, float3& radiance, float3& albedo)
     // Trying that:
     
     // When no albedo has been written before and the hit was diffuse or a light, write the albedo.
-    // DAR Unfortunately this made glass materials and motion blur on specular surfaces in the demo noisier.
+    // DAR This makes glass materials and motion blur on specular surfaces in the demo a little noisier,
+    // but should definitely be used with high frequency textures behind transparent or around reflective materials.
     //if (!(prd.flags & FLAG_ALBEDO) && (prd.flags & (FLAG_DIFFUSE | FLAG_LIGHT)))
     //{
     //  albedo = throughput * prd.albedo;

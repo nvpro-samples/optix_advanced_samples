@@ -24,6 +24,11 @@ Instructions for building:
     by moving the cursor over the field, hitting <enter>, changing the value, 
     and hitting <enter> again.
 
+  * The newly added OptiX Introduction examples add a dependency for the DevIL image library.
+    Under Linux these should be found automatically by the FindDevIL.cmake.
+    If not, you can manually set the IL_INCLUDE_DIR, IL_LIBRARIES, ILU_LIBRARIES, and ILUT_LIBRARIES
+    to the IL include path and libraries IL, ILU and ILUT respectively.
+    
   * Adjust other options. You may want to change CMAKE_BUILD_TYPE to select a 
     Debug build rather than the default RELEASE build.
 
