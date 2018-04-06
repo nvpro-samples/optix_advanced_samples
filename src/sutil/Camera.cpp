@@ -91,12 +91,12 @@ bool sutil::Camera::process_mouse( float x, float y, bool left_button_down, bool
     static bool   have_mouse_prev_pos = false;
 
     // No action if mouse did not move
-    if ( mouse_prev_pos.x == x && mouse_prev_pos.y == y ) return false;
+    if (( mouse_prev_pos.x == x && mouse_prev_pos.y == y) ) return false;
 
     bool dirty = false;
 
     if ( left_button_down || right_button_down || middle_button_down ) {
-        if ( have_mouse_prev_pos ) {
+        if ( have_mouse_prev_pos) {
             if ( left_button_down ) {
 
                 const float2 from = { mouse_prev_pos.x, mouse_prev_pos.y };
@@ -139,4 +139,20 @@ bool sutil::Camera::process_mouse( float x, float y, bool left_button_down, bool
 
     return dirty;
 }
+
+bool sutil::Camera::rotate( float dx, float dy )
+{
+    static sutil::Arcball arcball;
+
+    const float2 from = make_float2(m_width * .5f, m_height * .5f);
+    const float2 to   = make_float2(from.x + dx, from.y + dy);
+
+    const float2 a = { from.x / m_width, from.y / m_height };
+    const float2 b = { to.x   / m_width, to.y   / m_height };
+
+    m_camera_rotate = arcball.rotate( b, a );
+    apply();
+
+}
+
 
