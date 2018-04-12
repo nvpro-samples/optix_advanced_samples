@@ -103,12 +103,12 @@ RT_PROGRAM void closesthit()
     const float3 texColor = make_float3(optix::rtTex2D<float4>(parameters.albedoID, state.texcoord.x, state.texcoord.y));
     
     // Modulate the incoming color with the texture.
-    //parameters.albedo *= powf(texColor, 2.2f); // sRGB gamma correction done manually.
     parameters.albedo *= texColor;               // linear color, resp. if the texture has been uint8 and readmode set to use sRGB, then sRGB.
+    //parameters.albedo *= powf(texColor, 2.2f); // sRGB gamma correction done manually.
   }
 
 #if USE_DENOISER
-  // The primary ray uses this to write the denoiser's albedo buffer.
+  // The raygeneration program uses this to write the denoiser's albedo buffer.
   thePrd.albedo = parameters.albedo;
 #endif
 

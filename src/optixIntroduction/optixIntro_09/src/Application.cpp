@@ -170,6 +170,7 @@ Application::Application(GLFWwindow* window,
   m_glslFS      = 0;
   m_glslProgram = 0;
 
+#if 1 // Tonemapper defaults
   m_gamma          = 2.2f;
   m_colorBalance   = optix::make_float3(1.0f, 1.0f, 1.0f);
   m_whitePoint     = 1.0f;
@@ -177,15 +178,15 @@ Application::Application(GLFWwindow* window,
   m_crushBlacks    = 0.2f;
   m_saturation     = 1.2f;
   m_brightness     = 0.8f;
-
-  // DAR DEBUG Neutral tonemapper settings.
-  //m_gamma          = 1.0f;
-  //m_colorBalance   = optix::make_float3(1.0f, 1.0f, 1.0f);
-  //m_whitePoint     = 1.0f;
-  //m_burnHighlights = 1.0f;
-  //m_crushBlacks    = 0.0f;
-  //m_saturation     = 1.0f;
-  //m_brightness     = 1.0f;
+#else // DAR DEBUG Neutral tonemapper settings.
+  m_gamma          = 1.0f;
+  m_colorBalance   = optix::make_float3(1.0f, 1.0f, 1.0f);
+  m_whitePoint     = 1.0f;
+  m_burnHighlights = 1.0f;
+  m_crushBlacks    = 0.0f;
+  m_saturation     = 1.0f;
+  m_brightness     = 1.0f;
+#endif
 
   m_guiState = GUI_STATE_NONE;
 
@@ -1767,7 +1768,7 @@ void Application::createScene()
 #if 1 // Keep motion blur active on the torus to show it together with the denoiser.
 
     // Implement Scale-Rotation-Translation (SRT) motion blur on the torus.
-    // Move along to the right, along the positive x-axis and roll around by 180 degrees around that axis.
+    // Move to the right, along the positive x-axis and roll around that axis by 180 degrees.
 
     // Rotation angle is in degrees in the optixQuaternion class.
     const optix::float3 axis = optix::make_float3(1.0f, 0.0f, 0.0f);
@@ -1815,7 +1816,7 @@ void Application::createScene()
 void Application::setAccelerationProperties(optix::Acceleration acceleration)
 {
   // To speed up the acceleration structure build for triangles, skip calls to the bounding box program and
-  // invoke the special splitting BVH builder for indexed triangles by setting the necessary accelertion properties.
+  // invoke the special splitting BVH builder for indexed triangles by setting the necessary acceleration properties.
   // Using the fast Trbvh builder which does splitting has a positive effect on the rendering performanc as well!
   if (m_builder == std::string("Trbvh") || m_builder == std::string("Sbvh"))
   {
@@ -1896,7 +1897,7 @@ void Application::createLights()
     light.vecU      = optix::make_float3(1.0f, 0.0f, 0.0f);   // To the right.
     light.vecV      = optix::make_float3(0.0f, 0.0f, 1.0f);   // To the front. 
     optix::float3 n = optix::cross(light.vecU, light.vecV);   // Length of the cross product is the area.
-    light.area     = optix::length(n);                        // Calculate the world space area of that rectangle. (25 m^2)
+    light.area     = optix::length(n);                        // Calculate the world space area of that rectangle, unit is [m^2]
     light.normal   = n / light.area;                          // Normalized normal
     light.emission = optix::make_float3(100.0f);              // Radiant exitance in Watt/m^2.
 

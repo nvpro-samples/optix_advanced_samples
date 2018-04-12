@@ -102,8 +102,8 @@ RT_PROGRAM void closesthit()
     const float3 texColor = make_float3(optix::rtTex2D<float4>(parameters.albedoID, state.texcoord.x, state.texcoord.y));
     
     // Modulate the incoming color with the texture.
-    //parameters.albedo *= powf(texColor, 2.2f); // sRGB gamma correction done manually.
     parameters.albedo *= texColor;               // linear color, resp. if the texture has been uint8 and readmode set to use sRGB, then sRGB.
+    //parameters.albedo *= powf(texColor, 2.2f); // sRGB gamma correction done manually.
   }
 
   // Start fresh with the next BSDF sample.  (Either of these values remaining zero is an end-of-path condition.)

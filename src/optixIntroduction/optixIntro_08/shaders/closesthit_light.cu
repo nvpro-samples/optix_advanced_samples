@@ -89,3 +89,4 @@ RT_PROGRAM void closesthit_light()
   // Lights have no other material properties than emission in this demo. Terminate the path.
   thePrd.flags |= FLAG_TERMINATE;
 }
+

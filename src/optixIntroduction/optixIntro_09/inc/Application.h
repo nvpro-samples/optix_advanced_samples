@@ -118,10 +118,6 @@ public:
 
   void reshape(int width, int height);
 
-  //std::string loadStringFromFile(const std::string& filename);
-  //bool saveStringToFile(const std::string& filename, const std::string& data);
-  //std::string getDateTime();
-
   bool render();
   void display();
 
@@ -218,7 +214,6 @@ private:
   optix::Buffer m_bufferSampleBSDF;
   optix::Buffer m_bufferEvalBSDF;
   optix::Buffer m_bufferSampleLight;
-  //optix::Buffer m_bufferEvalEDF; // DAR Not needed when handling lights separately.
 
   bool   m_present; // This controls if the texture image is updated per launch or only once a second.
   bool   m_presentNext;
@@ -263,8 +258,8 @@ private:
   optix::Material m_opaqueMaterial; // Used for all materials without cutout opacity.
   optix::Material m_cutoutMaterial; // Used for all materials with cutout opacity.
   optix::Material m_lightMaterial;  // Used for all geometric lights. (Special cased diffuse emission distribution function to simplify the material system.)
-  
-  // DAR HACK Hardcoded scene elements.
+
+  // The root node of the OptiX scene graph (sysTopObject)
   optix::Group        m_rootGroup;
   optix::Acceleration m_rootAcceleration;
 

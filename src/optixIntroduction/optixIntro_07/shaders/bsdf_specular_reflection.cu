@@ -46,7 +46,7 @@ RT_CALLABLE_PROGRAM void sample_bsdf_specular_reflection(MaterialParameter const
   }
 
   prd.f_over_pdf = parameters.albedo;
-  prd.pdf        = 1.0f;
+  prd.pdf        = 1.0f; // Not 0.0f to make sure the path is not terminated. Otherwise unused for specular events.
 }
 
 // This is actually never reached, because the FLAG_DIFFUSE flag is not set when a specular BSDF is has been sampled.

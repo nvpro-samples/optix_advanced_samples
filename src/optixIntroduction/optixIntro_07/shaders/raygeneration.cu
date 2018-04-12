@@ -88,7 +88,7 @@ RT_FUNCTION void integrator(PerRayData& prd, float3& radiance)
       }
     }
 
-    // Note that the primary rays (or volume scattering miss cases) wouldn't noramlly offset the ray t_min by sysSceneEpsilon. Keep it simple here.
+    // Note that the primary rays (or volume scattering miss cases) wouldn't normally offset the ray t_min by sysSceneEpsilon. Keep it simple here.
     optix::Ray ray = optix::make_Ray(prd.pos, prd.wi, 0, sysSceneEpsilon, prd.distance);
     rtTrace(sysTopObject, ray, prd);
 

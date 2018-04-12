@@ -70,6 +70,7 @@ RT_PROGRAM void anyhit_cutout() // For the radiance ray type.
   }
 }
 
+
 // The shadow ray program for all materials with no cutout opacity.
 RT_PROGRAM void anyhit_shadow()
 {

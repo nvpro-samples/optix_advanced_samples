@@ -106,7 +106,7 @@ RT_CALLABLE_PROGRAM void sample_bsdf_specular_reflection_transmission(MaterialPa
 
   // No Fresnel factor here. The probability to pick one or the other side took care of that.
   prd.f_over_pdf = parameters.albedo;
-  prd.pdf        = 1.0f;
+  prd.pdf        = 1.0f; // Not 0.0f to make sure the path is not terminated. Otherwise unused for specular events.
 }
 
 // DAR PERF Same as every specular material.
