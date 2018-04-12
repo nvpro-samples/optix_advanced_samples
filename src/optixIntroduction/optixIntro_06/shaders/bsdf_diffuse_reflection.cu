@@ -72,8 +72,12 @@ RT_CALLABLE_PROGRAM void sample_bsdf_diffuse_reflection(MaterialParameter const&
     return;
   }
 
-  // PERF wi and normal are in the same hemisphere, no fabsf() needed on the cosTheta.
-  prd.f_over_pdf = parameters.albedo * (M_1_PIf * optix::dot(prd.wi, state.normal) / prd.pdf); 
+  // This would be the universal implementation for an arbitrary sampling of a diffuse surface.
+  // prd.f_over_pdf = parameters.albedo * (M_1_PIf * fabsf(optix::dot(prd.wi, state.normal)) / prd.pdf); 
+  
+  // PERF Since the cosine-weighted hemisphere distribution is a perfect importance-sampling of the Lambert material,
+  // the whole term ((M_1_PIf * fabsf(optix::dot(prd.wi, state.normal)) / prd.pdf) is always 1.0f here!
+  prd.f_over_pdf = parameters.albedo;
 
   prd.flags |= FLAG_DIFFUSE; // Direct lighting will be done with multiple importance sampling.
 }

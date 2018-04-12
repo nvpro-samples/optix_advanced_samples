@@ -126,7 +126,12 @@ RT_PROGRAM void closesthit()
   
   MaterialParameter parameters = sysMaterialParameters[parMaterialIndex];
 
-  thePrd.f_over_pdf = parameters.albedo * (M_1_PIf * optix::dot(thePrd.wi, normal) / thePrd.pdf); // PERF wi and normal are in the same hemisphere, no fabsf() needed on the cosTheta.
+  // This would be the universal implementation for an arbitrary sampling of a diffuse surface.
+  // thePrd.f_over_pdf = parameters.albedo * (M_1_PIf * fabsf(optix::dot(prd.wi, normal)) / prd.pdf); 
+  
+  // PERF Since the cosine-weighted hemisphere distribution is a perfect importance-sampling of the Lambert material,
+  // the whole term ((M_1_PIf * fabsf(optix::dot(prd.wi, normal)) / prd.pdf) is always 1.0f here!
+  thePrd.f_over_pdf = parameters.albedo;
 
   // This is a brute-force path tracer. There is no next event estimation (direct lighting) here.
   // Note that because of that, the albedo affects the path throughput only.
