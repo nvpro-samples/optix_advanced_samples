@@ -72,8 +72,6 @@ RT_CALLABLE_PROGRAM void sample_light_constant(float3 const& point, const float2
 
 RT_CALLABLE_PROGRAM void sample_light_environment(float3 const& point, const float2 sample, LightSample& lightSample)
 {
-  lightSample.pdf = 0.0f; // Default return, invalid sample.
-    
   LightDefinition const& light = sysLightDefinitions[0]; // The environment light is always placed into the first entry.
 
   // Importance-sample the spherical environment light direction.
@@ -108,7 +106,7 @@ RT_CALLABLE_PROGRAM void sample_light_environment(float3 const& point, const flo
   {
     index.x = (ilo + ihi) >> 1;
     const float cdf = light.idEnvironmentCDF_U[index];
-    if (sample.x < cdf) // If the cdf is greater than the sample, use that as new higher limit.
+    if (sample.x < cdf) // If the CDF value is greater than the sample, use that as new higher limit.
     {
       ihi = index.x;
     }
@@ -134,27 +132,25 @@ RT_CALLABLE_PROGRAM void sample_light_environment(float3 const& point, const flo
   const float v = (float(index.y) + dv) / float(sizeV - 1);
 
   // Light sample direction vector polar coordinates. This is where the environment rotation happens!
-  // DAR FIXME Use the light.matrix to rotate the resulting vector instead.
+  // DAR FIXME Use a light.matrix to rotate the resulting vector instead.
   const float phi   = (u - sysEnvironmentRotation) * 2.0f * M_PIf;
   const float theta = v * M_PIf; // theta == 0.0f is south pole, theta == M_PIf is north pole.
-  
+
   const float sinTheta = sinf(theta);
-  if (DENOMINATOR_EPSILON < sinTheta) // The pdf calculation at the poles is not defined.
-  {
-    // The miss program places the 1->0 seam at the positive z-axis and looks from the inside.
-    lightSample.direction = make_float3(-sinf(phi) * sinTheta,  // Starting on positive z-axis going around clockwise (to negative x-axis).
-                                        -cosf(theta),           // From south pole to north pole.
-                                         cosf(phi) * sinTheta); // Starting on positive z-axis.
-    
-    // Note that environment lights do not set the light sample position!
-    lightSample.distance = RT_DEFAULT_MAX; // Environment light.
-  
-    const float3 emission = make_float3(optix::rtTex2D<float4>(light.idEnvironmentTexture, u, v));
-    
-    // Explicit light sample. The returned emission must be scaled by the inverse probability to select this light.
-    lightSample.emission = emission * sysNumLights; 
-    lightSample.pdf      = intensity(emission) / (light.environmentIntegral * 2.0f * M_PIf * M_PIf * sinTheta);
-  }
+  // The miss program places the 1->0 seam at the positive z-axis and looks from the inside.
+  lightSample.direction = make_float3(-sinf(phi) * sinTheta,  // Starting on positive z-axis going around clockwise (to negative x-axis).
+                                      -cosf(theta),           // From south pole to north pole.
+                                       cosf(phi) * sinTheta); // Starting on positive z-axis.
+
+  // Note that environment lights do not set the light sample position!
+  lightSample.distance = RT_DEFAULT_MAX; // Environment light.
+
+  const float3 emission = make_float3(optix::rtTex2D<float4>(light.idEnvironmentTexture, u, v));
+  // Explicit light sample. The returned emission must be scaled by the inverse probability to select this light.
+  lightSample.emission = emission * sysNumLights;
+  // For simplicity we pretend that we perfectly importance-sampled the actual texture-filtered environment map
+  // and not the Gaussian-smoothed one used to actually generate the CDFs and uniform sampling in the texel.
+  lightSample.pdf = intensity(emission) / light.environmentIntegral;
 }
 
 

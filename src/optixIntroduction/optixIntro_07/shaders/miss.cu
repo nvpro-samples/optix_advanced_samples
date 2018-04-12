@@ -82,16 +82,14 @@ RT_PROGRAM void miss_environment_mapping()
 
 #if USE_NEXT_EVENT_ESTIMATION
   float weightMIS = 1.0f;
-  // If the last surface intersection was a diffuse which was directly lit with multiple importance sampling,
-  // then calculate light emission with multiple importance sampling as well.
+  // If the last surface intersection was a diffuse event which was directly lit with multiple importance sampling,
+  // then calculate light emission with multiple importance sampling for this implicit light hit as well.
   if (thePrd.flags & FLAG_DIFFUSE)
   {
-    const float sinTheta = sinf(theta);
-    if (DENOMINATOR_EPSILON < sinTheta) // Prevent infinity pdf at poles.
-    {
-      const float pdfLight = intensity(emission) / (light.environmentIntegral * 2.0f * M_PIf * M_PIf * sinTheta);
-      weightMIS = powerHeuristic(thePrd.pdf, pdfLight);
-    }
+    // For simplicity we pretend that we perfectly importance-sampled the actual texture-filtered environment map
+    // and not the Gaussian smoothed one used to actually generate the CDFs.
+    const float pdfLight = intensity(emission) / light.environmentIntegral;
+    weightMIS = powerHeuristic(thePrd.pdf, pdfLight);
   }
   thePrd.radiance = emission * weightMIS;
 #else

@@ -235,8 +235,8 @@ bool Texture::createSampler(optix::Context context,
 
     if (!isCreated)
     {
-      std::cerr << "ERROR: createSampler() Could not create Texture Sampler or Buffer" << std::endl;
-      return false;
+      std::cerr << "ERROR: createSampler() Could not create TextureSampler or Buffer" << std::endl;
+      return success;
     }
 
     // If the TextureSampler and Buffer could be created, fill the buffer with the pixel data.
@@ -322,15 +322,11 @@ unsigned int Texture::getHeight() const
   return m_height;
 }
 
-// For OpenGL interop these formats are supported by CUDA 4.2:
+// For OpenGL interop these formats are supported by CUDA according to the current manual on cudaGraphicsGLRegisterImage:
 // GL_RED, GL_RG, GL_RGBA, GL_LUMINANCE, GL_ALPHA, GL_LUMINANCE_ALPHA, GL_INTENSITY
-// {GL_R, GL_RG, GL_RGBA} X {8, 16, 16F, 32F, 8UI, 16UI, 32UI, 8I, 16I, 32I}
-// {GL_LUMINANCE, GL_ALPHA, GL_LUMINANCE_ALPHA, GL_INTENSITY} X {8, 16, 16F_ARB, 32F_ARB, 8UI_EXT, 16UI_EXT, 32UI_EXT, 8I_EXT, 16I_EXT, 32I_EXT}
-// 
-// OptiX 3.0 lists only these. // DAR DEBUG Why?:
-// {GL_R, GL_RG} x {    8I, 8UI,     16I, 16UI, 32I, 32UI, 32F }
-// {GL_RGBA}     x { 8, 8I, 8UI, 16, 16I, 16UI, 32I, 32UI, 32F }
-//
+// {GL_R, GL_RG, GL_RGBA} x {8, 16, 16F, 32F, 8UI, 16UI, 32UI, 8I, 16I, 32I}
+// {GL_LUMINANCE, GL_ALPHA, GL_LUMINANCE_ALPHA, GL_INTENSITY} x {8, 16, 16F_ARB, 32F_ARB, 8UI_EXT, 16UI_EXT, 32UI_EXT, 8I_EXT, 16I_EXT, 32I_EXT}
+
 // The following mapping is done for host textures. RGB formats will be expanded to RGBA.
 
 // DAR While single and dual channel textures can easily be uploaded, the texture doesn't know what the destination format actually is,
@@ -1009,7 +1005,7 @@ void Texture::createEnvironment()
 
 // Implement a simple Gaussian 3x3 filter with sigma = 0.5
 // Needed for the CDF generation of the importance sampled HDR environment texture light.
-static float gaussianFilter(float* rgba, unsigned int width, unsigned int height, unsigned int x, unsigned int y)
+static float gaussianFilter(const float* rgba, unsigned int width, unsigned int height, unsigned int x, unsigned int y)
 {
   // Lookup is repeated in x and clamped to edge in y.
   unsigned int left   = (0 < x)          ? x - 1 : width - 1; // repeat
@@ -1018,7 +1014,7 @@ static float gaussianFilter(float* rgba, unsigned int width, unsigned int height
   unsigned int top    = (y < height - 1) ? y + 1 : y;         // clamp
   
   // Center
-  float *p = rgba + (width * y + x) * 4;
+  const float *p = rgba + (width * y + x) * 4;
   float intensity = (p[0] + p[1] + p[2]) * 0.619347f;
 
   // 4-neighbours
@@ -1046,9 +1042,9 @@ static float gaussianFilter(float* rgba, unsigned int width, unsigned int height
   return intensity / 3.0f;
 }
  
-// Create cumulative distribution function importacne sampling of spherical environment lights.
-// This is a textbook implementation for the CDF generation of a spherical HDR environment
-// as found in the book "Physically Based Rendering" version 2.
+// Create cumulative distribution function for importance sampling of spherical environment lights.
+// This is a textbook implementation for the CDF generation of a spherical HDR environment.
+// See "Physically Based Rendering" v2, chapter 14.6.5 on Infinite Area Lights.
 bool Texture::calculateCDF(optix::Context context)
 {
   if (m_texels.empty() || (m_texels.size() != m_width * m_height * 4))
@@ -1056,7 +1052,7 @@ bool Texture::calculateCDF(optix::Context context)
     return false;
   }
 
-  float *rgba = m_texels.data();
+  const float *rgba = m_texels.data();
 
   // The original data needs to be retained to calculate the PDF.
   float *funcU = new float[m_width * m_height];
@@ -1067,7 +1063,7 @@ bool Texture::calculateCDF(optix::Context context)
   for (unsigned int y = 0; y < m_height; ++y)
   {
     // Scale distibution by the sine to get the sampling uniform. (Avoid sampling more values near the poles.)
-    // See PBRT 2, chapter 14.6.5 on Infinite Area Lights, page 728.
+    // See Physically Based Rendering v2, chapter 14.6.5 on Infinite Area Lights, page 728.
     float sinTheta = float(sin(M_PI * (double(y) + 0.5) / double(m_height))); // Make this as accurate as possible.
 
     for (unsigned int x = 0; x < m_width; ++x)
@@ -1076,14 +1072,15 @@ bool Texture::calculateCDF(optix::Context context)
       const float value = gaussianFilter(rgba, m_width, m_height, x, y);
       funcU[y * m_width + x] = value * sinTheta;
 
-      // Since we sample 1:1 data here, the integral over all texels is simply their unfiltered sum.
+      // Compute integral over the actual function.
       const float *p = rgba + (y * m_width + x) * 4;
       const float intensity = (p[0] + p[1] + p[2]) / 3.0f;
-      sum += intensity; // Note, without the sinTheta factor!
+      sum += intensity * sinTheta;
     }
   }
 
-  m_integral = sum / float(m_width * m_height); // This is used inside the light sampling function (see sysEnvironmentIntegral).
+  // This integral is used inside the light sampling function (see sysEnvironmentIntegral).
+  m_integral = sum * 2.0f * M_PIf * M_PIf / float(m_width * m_height);
 
   // Now generate the CDF data.
   // Normalized 1D distributions in the rows of the 2D buffer, and the marginal CDF in the 1D buffer.
@@ -1099,11 +1096,11 @@ bool Texture::calculateCDF(optix::Context context)
     for (unsigned int x = 1; x <= m_width; ++x)
     {
       unsigned int i = row + x;
-      cdfU[i] = cdfU[i - 1] + funcU[y * m_width + x - 1] / float(m_width); // Attention, funcU is only m_width wide! 
+      cdfU[i] = cdfU[i - 1] + funcU[y * m_width + x - 1]; // Attention, funcU is only m_width wide! 
     }
 
-    float integral = cdfU[row + m_width]; // The integral over this row is in the last element.
-    funcV[y] = integral; // Store this as function values of the marginal CDF.
+    const float integral = cdfU[row + m_width]; // The integral over this row is in the last element.
+    funcV[y] = integral;                        // Store this as function values of the marginal CDF.
 
     if (integral != 0.0f)
     {
@@ -1125,11 +1122,11 @@ bool Texture::calculateCDF(optix::Context context)
   cdfV[0] = 0.0f; // CDF starts at 0.0f.
   for (unsigned int y = 1; y <= m_height; ++y)
   {
-    cdfV[y] = cdfV[y - 1] + funcV[y - 1] / float(m_height);
+    cdfV[y] = cdfV[y - 1] + funcV[y - 1];
   }
         
-  float integral = cdfV[m_height]; // The integral over this marginal CDF is in the last element.
-  funcV[m_height] = integral;      // Unused.
+  const float integral = cdfV[m_height]; // The integral over this marginal CDF is in the last element.
+  funcV[m_height] = integral;            // For completeness, actually unused.
 
   if (integral != 0.0f)
   {
