@@ -141,17 +141,20 @@ RT_FUNCTION void integrator(PerRayData& prd, float3& radiance, float3& albedo)
     // When no albedo has been written before and the hit was diffuse or a light, write the albedo.
     // DAR This makes glass materials and motion blur on specular surfaces in the demo a little noisier,
     // but should definitely be used with high frequency textures behind transparent or around reflective materials.
-    //if (!(prd.flags & FLAG_ALBEDO) && (prd.flags & (FLAG_DIFFUSE | FLAG_LIGHT)))
-    //{
-    //  albedo = throughput * prd.albedo;
-    //  prd.flags |= FLAG_ALBEDO; // This flag is persistent along the path and prevents that the albedo is written more than once.
-    //}
-    
+#if 1
+    if (!(prd.flags & FLAG_ALBEDO) && (prd.flags & (FLAG_DIFFUSE | FLAG_LIGHT)))
+    {
+      albedo = throughput * prd.albedo;
+      prd.flags |= FLAG_ALBEDO; // This flag is persistent along the path and prevents that the albedo is written more than once.
+    }
+#else    
     if (depth == 0) // Just write the albedo of the primary ray.
     {
       albedo = throughput * prd.albedo;
     }
 #endif
+
+#endif // USE_DENOISER
 
     // Path termination by miss shader or sample() routines.
     // If terminate is true, f_over_pdf and pdf might be undefined.
@@ -258,7 +261,8 @@ RT_PROGRAM void raygeneration()
 }
 
 #if USE_DENOISER
-// OptiX 5.0.0 needs at least one appendLaunch() in the post-processing CommandList or the denoiser will not trigger its memory allocations.
+// OptiX 5.0.x needs at least one appendLaunch() in the post-processing CommandList or the denoiser will not trigger its memory allocations.
+// This is fixed in OptiX 5.1.0 which also supports HDR denoising directly, so that the tonemapper can be placed last again.
 // Put my own tonemapper from GLSL here to get the proper gamma corrected input into the denoiser.
 
 rtBuffer<float4, 2> sysTonemappedBuffer;
