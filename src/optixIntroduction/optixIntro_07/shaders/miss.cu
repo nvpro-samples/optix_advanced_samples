@@ -69,7 +69,7 @@ RT_PROGRAM void miss_environment_constant()
 
 RT_PROGRAM void miss_environment_mapping()
 {
-  LightDefinition const& light = sysLightDefinitions[0];
+  const LightDefinition light = sysLightDefinitions[0];
   
   const float3 R = theRay.direction;
   // The seam u == 0.0 == 1.0 is in positive z-axis direction.

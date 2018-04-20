@@ -116,9 +116,9 @@ RT_PROGRAM void closesthit()
     // The caller picks the light to sample. Make sure the index stays in the bounds of the sysLightDefinitions array.
     lightSample.index = optix::clamp(static_cast<int>(floorf(rng(thePrd.seed) * sysNumLights)), 0, sysNumLights - 1); 
 
-    LightDefinition const& light = sysLightDefinitions[lightSample.index];
+    const LightType lightType = sysLightDefinitions[lightSample.index].type;
 
-    sysSampleLight[light.type](thePrd.pos, sample, lightSample); // probe.wi and probe.distance returned in world space!
+    sysSampleLight[lightType](thePrd.pos, sample, lightSample); 
   
     if (0.0f < lightSample.pdf) // Useful light sample?
     {

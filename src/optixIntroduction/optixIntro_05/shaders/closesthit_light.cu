@@ -70,7 +70,7 @@ RT_PROGRAM void closesthit_light()
 
   if (thePrd.flags & FLAG_FRONTFACE) // Looking at the front face?
   {
-    LightDefinition const& light = sysLightDefinitions[parLightIndex];
+    const LightDefinition light = sysLightDefinitions[parLightIndex];
     
     thePrd.radiance = light.emission;
 

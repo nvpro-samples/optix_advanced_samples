@@ -72,7 +72,7 @@ RT_CALLABLE_PROGRAM void sample_light_constant(float3 const& point, const float2
 
 RT_CALLABLE_PROGRAM void sample_light_environment(float3 const& point, const float2 sample, LightSample& lightSample)
 {
-  LightDefinition const& light = sysLightDefinitions[0]; // The environment light is always placed into the first entry.
+  const LightDefinition light = sysLightDefinitions[0]; // The environment light is always placed into the first entry.
 
   // Importance-sample the spherical environment light direction.
   const unsigned int sizeU = static_cast<unsigned int>(light.idEnvironmentCDF_U.size().x);
@@ -158,7 +158,7 @@ RT_CALLABLE_PROGRAM void sample_light_parallelogram(float3 const& point, const f
 {
   lightSample.pdf = 0.0f; // Default return, invalid light sample (backface, edge on, or too near to the surface)
 
-  LightDefinition const& light = sysLightDefinitions[lightSample.index]; // The light index is picked by the caller!
+  const LightDefinition light = sysLightDefinitions[lightSample.index]; // The light index is picked by the caller!
 
   lightSample.position  = light.position + light.vecU * sample.x + light.vecV * sample.y; // The light sample position in world coordinates.
   lightSample.direction = lightSample.position - point; // Sample direction from surface point to light sample position.
