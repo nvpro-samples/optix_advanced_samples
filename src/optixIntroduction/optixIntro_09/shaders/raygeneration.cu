@@ -136,21 +136,21 @@ RT_FUNCTION void integrator(PerRayData& prd, float3& radiance, float3& albedo)
     // The albedo value can be approximated for simple materials by using the diffuse color of the first hit,
     // or for layered materials by using a weighted sum of the individual BRDFs’ albedo values.
     // For some objects such as perfect mirrors, the quality of the result might be improved by using the albedo value of a subsequent hit instead.
-    // Trying that:
-    
+#if 1
     // When no albedo has been written before and the hit was diffuse or a light, write the albedo.
     // DAR This makes glass materials and motion blur on specular surfaces in the demo a little noisier,
     // but should definitely be used with high frequency textures behind transparent or around reflective materials.
-#if 1
     if (!(prd.flags & FLAG_ALBEDO) && (prd.flags & (FLAG_DIFFUSE | FLAG_LIGHT)))
     {
-      albedo = throughput * prd.albedo;
+      // The albedo buffer should contain the surface appearance under uniform lighting in linear color space in the range [0.0f, 1.0f].
+      // Clamp the final albedo result to that range here, because it captured the radiance when hitting lights either directly or via specular events.
+      albedo = optix::clamp(throughput * prd.albedo, 0.0f, 1.0f);
       prd.flags |= FLAG_ALBEDO; // This flag is persistent along the path and prevents that the albedo is written more than once.
     }
 #else    
     if (depth == 0) // Just write the albedo of the primary ray.
     {
-      albedo = throughput * prd.albedo;
+      albedo = optix::clamp(throughput * prd.albedo, 0.0f, 1.0f); // See comment above. Expects linear colors in the range [0.0f, 1.0f]
     }
 #endif
 
