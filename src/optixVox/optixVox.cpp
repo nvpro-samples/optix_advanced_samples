@@ -53,7 +53,7 @@
 #include <SunSky.h>
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_glfw_gl2.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -430,7 +430,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
 
         glfwPollEvents();                                                        
 
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplGlfwGL2_NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
         
@@ -505,6 +505,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, sutil::PreethamSunSky& 
 
         // Render gui over it
         ImGui::Render();
+        ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers( window );
     }

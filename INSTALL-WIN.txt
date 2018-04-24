@@ -24,6 +24,10 @@ Instructions for building:
   * Set OptiX_INSTALL_DIR to wherever you installed OptiX, e.g., 
     "C:\ProgramData\NVIDIA Corporation\OptiX SDK <version>\".
 
+  * The newly added OptiX Introduction examples add a dependency for the DevIL image library.
+    Set IL_INCLUDE_DIR, IL_LIBRARIES, ILU_LIBRARIES, and ILUT_LIBRARIES to the path for 
+    DevIL/include, DevIL.lib, ILU.lib and ILUT.lib respectively.
+    
   * Press "Configure" again, then "Generate".
 
   * Open the OptiX-Advanced-Samples.sln solution file in the build directory you created.

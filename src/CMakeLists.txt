@@ -131,6 +131,8 @@ endif()
 find_package(CUDA 7.0 REQUIRED)
 find_package(OpenGL REQUIRED)
 
+find_package(DevIL REQUIRED)
+
 if ( OPENGL_FOUND AND OPENGL_INCLUDE_DIR )
   include_directories( ${OPENGL_INCLUDE_DIR} )
 endif()
@@ -306,7 +308,7 @@ add_subdirectory(optixOcean)
 add_subdirectory(optixProgressivePhotonMap)
 add_subdirectory(optixVox)
 add_subdirectory(optixParticleVolumes)
-
+add_subdirectory(optixIntroduction)
 
 # Our sutil library.  The rules to build it are found in the subdirectory.
 add_subdirectory(sutil)
@@ -333,9 +335,10 @@ if(WIN32)
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${lib} ${path}/${name})
       endfunction()
       
-      # Copy OptiX dlls from the binary directory into the build.
+      # Copy OptiX and DevIL dlls from their binary directories into the build.
       get_filename_component( path_to_optix_dll ${optix_DLL} PATH )
-      file(GLOB dlls "${path_to_optix_dll}/*.dll")
+      get_filename_component( path_to_devil_dll ${IL_LIBRARIES} PATH )
+      file(GLOB dlls "${path_to_optix_dll}/*.dll" "${path_to_devil_dll}/*.dll")
       foreach(file ${dlls})
         copy_dll("${file}")
       endforeach()

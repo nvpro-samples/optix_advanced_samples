@@ -51,7 +51,7 @@
 #include <OptiXMesh.h>
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_glfw_gl2.h>
 
 #include <cstdlib>
 #include <cstring>
@@ -386,7 +386,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
         glfwPollEvents();                                                        
 
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplGlfwGL2_NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
         
@@ -462,6 +462,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, const optix::Group top_
 
         // Render gui over it
         ImGui::Render();
+        ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers( window );
     }

@@ -17,6 +17,8 @@ advanced samples directly into the SDK, and vice versa.
 
 Some samples, like [optixVox](./src/optixVox) and [optixParticleVolumes](./src/optixParticleVolumes), are new.  Others used to ship in some form with OptiX prior to version 4.
 
+Please navigate into the optixIntroduction sub-folder for specific documentation of the new tutorial examples contained inside that.
+
 For requirements and build instructions see [INSTALL-LINUX.txt](./INSTALL-LINUX.txt) or [INSTALL-WIN.txt](./INSTALL-WIN.txt).
 
 Technical support is available on [NVIDIA's Developer Zone](https://devtalk.nvidia.com/default/board/90/), or 
