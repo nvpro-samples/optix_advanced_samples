@@ -153,6 +153,7 @@ bool sutil::Camera::rotate( float dx, float dy )
     m_camera_rotate = arcball.rotate( b, a );
     apply();
 
+    return true;
 }
 
 

@@ -32,24 +32,19 @@
 
 const int RBF_SAMPLES = 256;
 
-#if defined(__cplusplus)
-  typedef optix::float3 float3;
-  typedef optix::float2 float2;
-#endif
-
 struct BasicLight
 {
-  float3 pos;
-  float3 color;
-  int    casts_shadow; 
-  int    padding;      // make this structure 32 bytes -- powers of two are your friend!
+  optix::float3 pos;
+  optix::float3 color;
+  int           casts_shadow; 
+  int           padding;      // make this structure 32 bytes -- powers of two are your friend!
 };
 
 struct PerRayData_radiance_rbf
 {
-  float3 result;
-  int    rbfi;
-  float2 rbfs[RBF_SAMPLES];
+  optix::float3 result;
+  int           rbfi;
+  optix::float2 rbfs[RBF_SAMPLES];
 };
 
 

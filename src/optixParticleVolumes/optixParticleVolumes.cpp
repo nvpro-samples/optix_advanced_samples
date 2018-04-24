@@ -44,7 +44,7 @@
 #include <GLFW/glfw3.h>
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_glfw_gl2.h>
 
 #include <optixu/optixpp_namespace.h>
 #include <optixu/optixu_math_stream_namespace.h>
@@ -423,7 +423,7 @@ void readFile( std::vector<float4>& positions,
         }
 
         positions.resize(numParticles);
-        int b = fread(&positions[0], sizeof(float), numParticles, fp);
+        size_t b = fread(&positions[0], sizeof(float), numParticles, fp);
         fclose(fp);
 
         float4 pmin, pmax;
@@ -456,7 +456,7 @@ void readFile( std::vector<float4>& positions,
         bbox_max = make_float3(pmax.x + rd, pmax.y + rd, pmax.z + rd);
 
         if (fixed_radius == 0.f)
-          fixed_radius = length(bbox_max - bbox_min) / powf(numParticles, 0.33333f);  
+          fixed_radius = length(bbox_max - bbox_min) / powf(float(numParticles), 0.33333f);  
 
         std::cout << "Particle fixed_radius = " << fixed_radius << std::endl;
 
@@ -597,7 +597,7 @@ void readFile( std::vector<float4>& positions,
             radii.push_back( rd );
         }
 
-        const int numParticles = positions.size();
+        const size_t numParticles = positions.size();
         std::cout << "# particles = " << numParticles << std::endl;
 
         float4 pmin, pmax;
@@ -626,7 +626,7 @@ void readFile( std::vector<float4>& positions,
         bbox_max = make_float3(pmax.x, pmax.y, pmax.z);
 
         if (fixed_radius == 0.f)
-          fixed_radius = length(bbox_max - bbox_min) / powf(positions.size(), 0.333333f);  
+          fixed_radius = length(bbox_max - bbox_min) / powf(float(numParticles), 0.333333f);  
 
         std::cout << "Using fixed_radius = " << fixed_radius << std::endl;
 
@@ -638,7 +638,7 @@ void readFile( std::vector<float4>& positions,
         float wRange = float( 1.0 / double(wmax - wmin) );
 
         //#pragma omp parallel for
-        for(int i=0; i<positions.size(); i++)
+        for(size_t i=0; i<positions.size(); i++)
             positions[i].w = positions[i].w * wRange;
     }
 
@@ -946,7 +946,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
 
         glfwPollEvents();                                                        
 
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplGlfwGL2_NewFrame();
 
         ImGuiIO& io = ImGui::GetIO();
 
@@ -1033,6 +1033,7 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
 
         // Render gui over it
         ImGui::Render();
+        ImGui_ImplGlfwGL2_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers( window );
     }
@@ -1135,7 +1136,7 @@ int main( int argc, char** argv )
                 std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
-            fixed_radius = atof( argv[++i] );
+            fixed_radius = (float) atof( argv[++i] );
         }
 
         else if( arg == "--segment_size"  )
@@ -1145,7 +1146,7 @@ int main( int argc, char** argv )
                 std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
-            segment_size = atof( argv[++i] );
+            segment_size = (float) atof( argv[++i] );
         }
         else if( arg == "--wScale"  )
         {
@@ -1154,7 +1155,7 @@ int main( int argc, char** argv )
                 std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
-            wScale = atof( argv[++i] );
+            wScale = (float) atof( argv[++i] );
         }
         else if( arg == "--opacity"  )
         {
@@ -1163,7 +1164,7 @@ int main( int argc, char** argv )
                 std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
-            opacity = atof( argv[++i] );
+            opacity = (float) atof( argv[++i] );
         }
         else if( arg == "-n" || arg == "--nopbo"  )
         {
