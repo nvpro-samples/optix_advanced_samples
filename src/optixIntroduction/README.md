@@ -10,7 +10,7 @@ This means you cannot generally copy one of the advanced samples directly into t
 The optixIntro_07 sample adds texture image loading via the [DevIL](http://openil.sourceforge.net/) image library.
 This adds DevIL as an additional dependency to the OptiX Advanced Samples.
 
-For requirements and build instructions see [INSTALL-LINUX.txt](./INSTALL-LINUX.txt) or [INSTALL-WIN.txt](./INSTALL-WIN.txt).
+For requirements and build instructions see [INSTALL-LINUX.txt](../../INSTALL-LINUX.txt) or [INSTALL-WIN.txt](../../INSTALL-WIN.txt) inside the OptiX Advanced Samples root directory.
 
 Technical support is available on [NVIDIA's Developer Forum](https://devtalk.nvidia.com/default/board/254/optix/), or you can create a git issue.
 
