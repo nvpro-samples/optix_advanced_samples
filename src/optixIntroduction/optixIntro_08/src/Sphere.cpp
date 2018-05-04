@@ -102,7 +102,7 @@ optix::Geometry Application::createSphere(const int tessU, const int tessV, cons
     }
   }
   
-  std::cout << "createSphere(): Vertices = " << attributes.size() <<  ", Triangles = " << indices.size() / 4 << std::endl;
+  std::cout << "createSphere(): Vertices = " << attributes.size() <<  ", Triangles = " << indices.size() / 3 << std::endl;
 
   return createGeometry(attributes, indices);
 }
