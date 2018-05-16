@@ -131,7 +131,8 @@ endif()
 find_package(CUDA 7.0 REQUIRED)
 find_package(OpenGL REQUIRED)
 
-find_package(DevIL REQUIRED)
+# Optional: When IL_FOUND is false after this call, the OptiX introduction samples optixIntro_07 and higher will not be built.
+find_package(DevIL)
 
 if ( OPENGL_FOUND AND OPENGL_INCLUDE_DIR )
   include_directories( ${OPENGL_INCLUDE_DIR} )
@@ -335,10 +336,14 @@ if(WIN32)
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${lib} ${path}/${name})
       endfunction()
       
-      # Copy OptiX and DevIL dlls from their binary directories into the build.
+      # Copy OptiX and optional DevIL dlls from their binary directories into the build
       get_filename_component( path_to_optix_dll ${optix_DLL} PATH )
-      get_filename_component( path_to_devil_dll ${IL_LIBRARIES} PATH )
-      file(GLOB dlls "${path_to_optix_dll}/*.dll" "${path_to_devil_dll}/*.dll")
+      file(GLOB dlls "${path_to_optix_dll}/*.dll")
+      if (IL_FOUND)
+        get_filename_component( path_to_devil_dll ${IL_LIBRARIES} PATH )
+        file(GLOB devil_dlls "${path_to_devil_dll}/*.dll")
+        list(APPEND dlls ${devil_dlls})
+      endif()
       foreach(file ${dlls})
         copy_dll("${file}")
       endforeach()
