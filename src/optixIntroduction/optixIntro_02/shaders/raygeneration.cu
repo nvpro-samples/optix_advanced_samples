@@ -75,7 +75,7 @@ RT_PROGRAM void raygeneration()
   optix::Ray ray = optix::make_Ray(origin, direction, 0, 0.0f, RT_DEFAULT_MAX);
 
   // Start the ray traversal at the scene's root node, which in this case is an empty Group.
-  // The ray becomes the variable with rtCurrentRay semantic, and the other program domains.
+  // The ray becomes the variable with rtCurrentRay semantic in the other program domains.
   // The PerRayData becomes the variable with the semantic rtPayload in the other program domains,
   // which allows to exchange arbitrary data between the program domains.
   rtTrace(sysTopObject, ray, prd);

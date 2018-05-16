@@ -70,12 +70,11 @@ RT_PROGRAM void raygeneration()
   const float3 origin    = sysCameraPosition;
   const float3 direction = optix::normalize(ndc.x * sysCameraU + ndc.y * sysCameraV + sysCameraW);
 
-  // Shoot a ray from origin into direction (must alwqays be normalized!) for ray type 0 and test the interval between 0.0 and RT_DEFAULT_MAX for intersections.
-  // There is no geometry in the scene, yet, so this will always invoke the miss program assigned to ray type 0, which is the radiance ray in this implementation.
+  // Shoot a ray from origin into direction (must always be normalized!) for ray type 0 and test the interval between 0.0f and RT_DEFAULT_MAX for intersections.
   optix::Ray ray = optix::make_Ray(origin, direction, 0, 0.0f, RT_DEFAULT_MAX);
 
-  // Start the ray traversal at the scene's root node, which in this case is an empty Group.
-  // The ray becomes the variable with rtCurrentRay semantic, and the other program domains.
+  // Start the ray traversal at the scene's root node.
+  // The ray becomes the variable with rtCurrentRay semantic in the other program domains.
   // The PerRayData becomes the variable with the semantic rtPayload in the other program domains,
   // which allows to exchange arbitrary data between the program domains.
   rtTrace(sysTopObject, ray, prd);

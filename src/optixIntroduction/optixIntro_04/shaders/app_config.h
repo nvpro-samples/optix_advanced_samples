@@ -40,9 +40,6 @@
 // DAR Prevent that division by very small floating point values results in huge values, for example dividing by pdf.
 #define DENOMINATOR_EPSILON 1.0e-6f
 
-// If both anisotropic roughness values fall below this threshold, the BSDF switches to specular.
-#define MICROFACET_MIN_ROUGHNESS 0.0014142f
-
 // 0 == Disable all OptiX exceptions, rtPrintfs and rtAssert functionality. (Benchmark only in this mode!)
 // 1 == Enable  all OptiX exceptions, rtPrintfs and rtAssert functionality. (Really only for debugging, big performance hit!)
 #define USE_DEBUG_EXCEPTIONS 0
