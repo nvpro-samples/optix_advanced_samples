@@ -146,6 +146,19 @@ Following is a description of what the individual examples implement.
 
 ![optixIntro_09](./optixIntro_09/optixIntro_09.jpg)
 
+**optixIntro_10 shows additionally how to**:
+* use the new OptiX 5.1.0 HDR DL Denoiser to reduce random noise from images.
+* use the USE_DENOISER compile time defines to conditionally configure the denoiser to use 
+* - the beauty buffer only,
+* - the beauty buffer and the albedo buffer (default configuration),
+* - the beauty buffer, the albedo buffer, and the normal buffer (ignored!).
+* generate normal buffer data for the denoiser in camera space. (Note that the normal buffer is ignored by OptiX 5.1.0! This code is just for demonstration purposes.)
+* limit the amount of memory the DL Denoiser uses internally. (Currently commented out.)
+* set the OptiX usage report callback to output information about errors, warnings, and statistics.
+This example effectively supersedes the optixIntro_09 example when using OptiX 5.1.0 (at this time) because the HDR denoiser allows to keep the results full HDR throughout the rendering pipeline before final tone-mapping, which again is a post-process done by the rasterizer in a GLSL shader while displaying the final result.
+
+![optixIntro_10](./optixIntro_10/optixIntro_10.jpg)
+
 A block diagram of the resulting renderer implementation provided in the later examples of this OptiX introduction tutorial looks like this:
 
 ![Renderer Block Diagram](./renderer_block_diagram.jpg)

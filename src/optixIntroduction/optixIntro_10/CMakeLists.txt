@@ -1,6 +1,6 @@
-#
-# Copyright (c) 2016-2018, NVIDIA CORPORATION. All rights reserved.
-#
+# 
+# Copyright (c) 2013-2018, NVIDIA CORPORATION. All rights reserved.
+# 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -12,7 +12,7 @@
 #  * Neither the name of NVIDIA CORPORATION nor the names of its
 #    contributors may be used to endorse or promote products derived
 #    from this software without specific prior written permission.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -24,19 +24,75 @@
 # OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+# 
 
-add_subdirectory(optixIntro_01)
-add_subdirectory(optixIntro_02)
-add_subdirectory(optixIntro_03)
-add_subdirectory(optixIntro_04)
-add_subdirectory(optixIntro_05)
-add_subdirectory(optixIntro_06)
-if (IL_FOUND)
-  add_subdirectory(optixIntro_07)
-  add_subdirectory(optixIntro_08)
-  add_subdirectory(optixIntro_09)
-  add_subdirectory(optixIntro_10)
-else()
-  message(WARNING "DevIL image library not found. Please set IL_LIBRARIES, ILU_LIBRARIES, ILUT_LIBRARIES, and IL_INCLUDE_DIR to build OptiX introduction samples 07 to 10.")
-endif()
+# See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
+
+OPTIX_add_sample_executable( optixIntro_10
+  src/main.cpp
+
+  inc/Application.h
+  src/Application.cpp
+
+  src/Box.cpp
+  src/Parallelogram.cpp
+  src/Plane.cpp
+  src/Sphere.cpp
+  src/Torus.cpp
+
+  inc/LensShader.h
+
+  inc/PinholeCamera.h
+  src/PinholeCamera.cpp
+
+  inc/Picture.h
+  src/Picture.cpp
+
+  inc/Texture.h
+  src/Texture.cpp
+
+  inc/Timer.h
+  src/Timer.cpp
+
+  inc/MyAssert.h
+
+  shaders/app_config.h
+  shaders/function_indices.h
+  shaders/per_ray_data.h
+  shaders/material_parameter.h
+  shaders/random_number_generators.h
+  shaders/light_definition.h
+  shaders/rt_assert.h
+  shaders/rt_function.h
+  shaders/shader_common.h
+  shaders/vertex_attributes.h
+
+  shaders/boundingbox_triangle_indexed.cu
+  shaders/intersection_triangle_indexed.cu
+
+  shaders/closesthit.cu
+  shaders/closesthit_light.cu
+  shaders/anyhit.cu
+
+  shaders/raygeneration.cu
+  shaders/exception.cu
+  shaders/miss.cu
+
+  shaders/lens_shader.cu
+  shaders/bsdf_diffuse_reflection.cu
+  shaders/bsdf_specular_reflection.cu
+  shaders/bsdf_specular_reflection_transmission.cu
+  shaders/light_sample.cu
+)    
+
+include_directories(
+  "."
+  ${IL_INCLUDE_DIR}
+)
+
+target_link_libraries( optixIntro_10
+  ${IL_LIBRARIES}
+  ${ILU_LIBRARIES}
+  ${ILUT_LIBRARIES}
+)
+
