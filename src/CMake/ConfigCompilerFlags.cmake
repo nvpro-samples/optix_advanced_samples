@@ -116,11 +116,11 @@ else()
   set(C_WARNING_FLAGS   " ")
   set(CXX_WARNING_FLAGS " ")
 endif()
-SET(DEBUG_FLAGS "-O0 -g3")
+SET(DEBUG_FLAGS "-O0 -g3 -std=c++11")
 
 # We might consider adding -ffast-math.
 
-SET(RELEASE_FLAGS "-O3 -DNDEBUG -g3 -funroll-loops")
+SET(RELEASE_FLAGS "-O3 -DNDEBUG -g3 -funroll-loops -std=c++11")
 IF   (USING_GNU_C OR USING_CLANG_C)
   APPEND_TO_STRING(C_FLAGS         ${C_WARNING_FLAGS})
   APPEND_TO_STRING(C_FLAGS_DEBUG   ${DEBUG_FLAGS})
