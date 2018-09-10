@@ -42,9 +42,11 @@ rtDeclareVariable(float,        fixed_radius, ,  );
 RT_PROGRAM void particle_intersect( int primIdx )
 {
     const float4 pos = positions_buffer[primIdx];
-    float t = length(make_float3(pos.x, pos.y, pos.z) - ray.origin);
+    const float3 pos3 = make_float3(pos.x, pos.y, pos.z);
+    const float t = length(pos3 - ray.origin);
+    const float3 samplePos = ray.origin + ray.direction * t;
 
-    if( rtPotentialIntersection(t) )
+    if( (length(pos3 - samplePos) < fixed_radius) && rtPotentialIntersection(t) )
     {
       particle_rbf.x = t;
       particle_rbf.y = __int_as_float(primIdx);

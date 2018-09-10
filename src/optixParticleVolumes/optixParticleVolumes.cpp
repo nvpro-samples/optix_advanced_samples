@@ -138,10 +138,6 @@ ParticlesBuffer buffers;
 Geometry        geometry;
 GeometryGroup   geometry_group;
 
-//#define TWO_LEVEL_HIERARCHY 1
-#if defined (TWO_LEVEL_HIERARCHY)
-Group supergroup;
-#endif
 
 //------------------------------------------------------------------------------
 //
@@ -731,14 +727,6 @@ void setupParticles()
 
     geometry_group = context->createGeometryGroup();
 
-#if defined(TWO_LEVEL_HIERARCHY)
-    supergroup = context->createGroup();
-    supergroup->setChildCount( 1 );
-    supergroup->setChild( 0, geometry_group );
-    Acceleration grpAccel = context->createAcceleration( "Bvh8" );
-    supergroup->setAcceleration( grpAccel );
-#endif
-
     geometry_group->addChild( geom_instance );
     
     Acceleration accel = context->createAcceleration( "Bvh8" );
@@ -749,14 +737,6 @@ void setupParticles()
 
     context[ "top_object"   ]->set( geometry_group );
     context[ "top_shadower" ]->set( geometry_group );
-
-#if !defined(TWO_LEVEL_HIERARCHY)
-    context[ "top_object" ]->set( geometry_group );
-    context[ "top_shadower" ]->set( geometry_group );
-#else
-    context[ "top_object" ]->set( supergroup );
-    context[ "top_shadower" ]->set( supergroup );
-#endif
 }
 
 void setupCamera()
