@@ -147,19 +147,21 @@ bool Texture::createSampler(optix::Context context,
 
       m_sampler = context->createTextureSampler();
 
-      if (isCubemap) 
+      // Set working wrap mode defaults.
+      // Cubemaps need RT_WRAP_CLAMP_TO_EDGE to not generate seams at image borders with linear filering.
+      // Unnormalized texture indexing cannot use repeating or mirroring wrap modes.
+      if (isCubemap || useUnnormalized)
       {
-        // Cubemaps need RT_WRAP_CLAMP_TO_EDGE to not generate seams with linear filering.
         m_sampler->setWrapMode(0, RT_WRAP_CLAMP_TO_EDGE); 
         m_sampler->setWrapMode(1, RT_WRAP_CLAMP_TO_EDGE);
+        m_sampler->setWrapMode(2, RT_WRAP_CLAMP_TO_EDGE); // Set all three modes! OptiX doesn't distinguish among texture targets when checking for compatible wrap modes.
       }
       else
       {
-        // DAR FIXME Add user control over the wrap modes.
         m_sampler->setWrapMode(0, RT_WRAP_REPEAT);
         m_sampler->setWrapMode(1, RT_WRAP_REPEAT);
+        m_sampler->setWrapMode(2, RT_WRAP_REPEAT);
       }
-      m_sampler->setWrapMode(2, RT_WRAP_REPEAT);
 
       const RTfiltermode mipmapFilter = (useMipmaps && 1 < numFaces) ? RT_FILTER_LINEAR : RT_FILTER_NONE; // Trilinear or bilinear filtering.
       m_sampler->setFilteringModes(RT_FILTER_LINEAR, RT_FILTER_LINEAR, mipmapFilter);
@@ -187,7 +189,7 @@ bool Texture::createSampler(optix::Context context,
 
       if (!isCubemap) // 1D, 2D, or 3D texture.
       {
-        // DAR FIXME It's not generally possible to determine the intended texture dimension just by looking at its extends.
+        // DAR FIXME It's not generally possible to determine the intended texture dimension just by looking at its extents.
         // A 1x1x1 texture could be used with any sampler type: 1D, 2D, or 3D. Potentially breaks the texture access function.
         if (1 < m_depth) // 3D texture
         {
@@ -257,9 +259,9 @@ bool Texture::createSampler(optix::Context context,
         }
       }
     }
-    else // if (isCubemnap)
+    else // if (isCubemap)
     {
-      unsigned int numImages = picture->getNumberOfImages(); // These are the six sides of the cobemap.
+      unsigned int numImages = picture->getNumberOfImages(); // These are the six sides of the cubemap.
       MY_ASSERT(numImages == 6);
 
       for (unsigned int indexImage = 0; indexImage < numImages; ++indexImage)
