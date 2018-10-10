@@ -501,9 +501,9 @@ void Application::initRenderer()
   
     // RT_BUFFER_INPUT_OUTPUT to support accumulation.
 #if USE_DENOISER
-    // When the denoiser is running this buffer is never shown and can stay on the GPU which is achieved by setting the RT_BUFFER_GPU_LOCAL flag, 
-    // which will make accumulation faster, esp. on multi-GPU systems! The OptiX load balancer is static.
-    m_bufferOutput = m_context->createBuffer(RT_BUFFER_INPUT_OUTPUT | RT_BUFFER_GPU_LOCAL, RT_FORMAT_FLOAT4, m_width, m_height); // RGBA32F, the noisy beauty image.
+    // Note that on multi-GPU systems it's not possible to use RT_BUFFER_GPU_LOCAL buffers directly as input into the denoiser,
+    // because it wouldn't be able to combine the partial results from the different devices automatically.
+    m_bufferOutput = m_context->createBuffer(RT_BUFFER_INPUT_OUTPUT, RT_FORMAT_FLOAT4, m_width, m_height); // RGBA32F, the noisy beauty image.
 #else
     // In case of an OpenGL interop buffer, that is automatically registered with CUDA now! Must unregister/register around size changes.
     // The RT_BUFFER_GPU_LOCAL could be used on a separate accumulation buffer to improve performance on multi-GPU systems.

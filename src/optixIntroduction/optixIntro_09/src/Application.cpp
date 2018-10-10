@@ -488,6 +488,8 @@ void Application::initRenderer()
 #if USE_DENOISER
     // When the denoiser is running this buffer is never shown and can stay on the GPU which is achieved by setting the RT_BUFFER_GPU_LOCAL flag, 
     // which will make accumulation faster, esp. on multi-GPU systems! The OptiX load balancer is static.
+    // This is the input to the custom tonemapper entry point which combines the partial results from the individual device buffers on multi-GPU systems
+    // as required for the following LDR denoiser stage.
     m_bufferOutput = m_context->createBuffer(RT_BUFFER_INPUT_OUTPUT | RT_BUFFER_GPU_LOCAL, RT_FORMAT_FLOAT4, m_width, m_height); // RGBA32F, the noisy beauty image.
 #else
     // In case of an OpenGL interop buffer, that is automatically registered with CUDA now! Must unregister/register around size changes.
