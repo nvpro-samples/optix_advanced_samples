@@ -51,7 +51,7 @@
 
 #include <sutil.h>
 #include <Camera.h>
-#include "commonStructs_rbf.h"
+#include "commonStructs.h"
 #include <Arcball.h>
 
 #include <cstring>
@@ -104,7 +104,7 @@ bool            particles_file_velocities = false;
 bool            camera_slow_rotate = true;
 size_t          max_particles = 0;
 float           fixed_radius = 100.f;
-float           segment_size = 16.f;
+float           particlesPerSlab = 16.f;
 float           wScale = 3.5f;
 float           opacity = .5f;
 int             tf_type = 2;
@@ -264,13 +264,13 @@ void createContext( int usage_report_level, UsageReportLogger* logger )
 
     // Ray generation program
     std::string ptx;
-    ptx = ptxPath( "accum_camera_rbf.cu" );
-    Program ray_gen_program = context->createProgramFromPTXFile( ptxPath("accum_camera_rbf.cu"), "pinhole_camera" );
+    ptx = ptxPath( "raygen.cu" );
+    Program ray_gen_program = context->createProgramFromPTXFile( ptxPath("raygen.cu"), "raygen_program" );
 
     context->setRayGenerationProgram( 0, ray_gen_program );
 
     // Exception program
-    Program exception_program = context->createProgramFromPTXFile( ptxPath("accum_camera_rbf.cu"), "exception" );
+    Program exception_program = context->createProgramFromPTXFile( ptxPath("raygen.cu"), "exception" );
     context->setExceptionProgram( 0, exception_program );
     context["bad_color"]->setFloat( 1.0f, 0.0f, 1.0f );
 
@@ -370,7 +370,7 @@ void createMaterialPrograms(
     Program &any_hit)
 {
     if( !any_hit )
-      any_hit     = context->createProgramFromPTXFile( ptxPath("particles_material_rbf.cu"), "any_hit" );
+      any_hit     = context->createProgramFromPTXFile( ptxPath("material.cu"), "any_hit" );
 }
 
 
@@ -388,13 +388,13 @@ Material createOptiXMaterial(
 
 Program createBoundingBoxProgram( Context context )
 {
-  return context->createProgramFromPTXFile( ptxPath("particles_geometry_rbf.cu"), "particle_bounds" );
+  return context->createProgramFromPTXFile( ptxPath("geometry.cu"), "particle_bounds" );
 }
 
 
 Program createIntersectionProgram( Context context )
 {
-  return context->createProgramFromPTXFile( ptxPath("particles_geometry_rbf.cu"), "particle_intersect" );
+  return context->createProgramFromPTXFile( ptxPath("geometry.cu"), "particle_intersect" );
 }
 
 void readFile( std::vector<float4>& positions, 
@@ -664,7 +664,7 @@ void loadParticles()
 	    readFile(positions, velocities, colors, radii, bbox_min, bbox_max);
 
         context[ "fixed_radius"     ]->setFloat(fixed_radius);
-        context[ "segment_size"     ]->setFloat(segment_size);
+        context[ "particlesPerSlab"     ]->setFloat(particlesPerSlab);
         context[ "wScale" ] ->setFloat(wScale);
         context[ "opacity" ] ->setFloat(opacity);
         context[ "tf_type" ]->setInt(tf_type);
@@ -1004,9 +1004,13 @@ void glfwRun( GLFWwindow* window, sutil::Camera& camera, RenderBuffers& buffers 
               context[ "tf_type" ] ->setInt(tf_type);
             }
 
-            if ( ImGui::Checkbox( "camera rotate", &camera_slow_rotate ) ) {
+            static float redshift = 1.f;
+            if (ImGui::SliderFloat( "redshift scale", &redshift, 0.f, 10.f ) ) {
+              context[ "redshift" ] ->setFloat(redshift);
             }
 
+            if ( ImGui::Checkbox( "camera rotate", &camera_slow_rotate ) ) {
+            }
 
             ImGui::End();
         }
@@ -1141,14 +1145,14 @@ int main( int argc, char** argv )
             fixed_radius = (float) atof( argv[++i] );
         }
 
-        else if( arg == "--segment_size"  )
+        else if( arg == "--particlesPerSlab"  )
         {
             if( i == argc-1 )
             {
                 std::cout << "Option '" << argv[i] << "' requires additional argument.\n";
                 printUsageAndExit( argv[0] );
             }
-            segment_size = (float) atof( argv[++i] );
+            particlesPerSlab = (float) atof( argv[++i] );
         }
         else if( arg == "--wScale"  )
         {

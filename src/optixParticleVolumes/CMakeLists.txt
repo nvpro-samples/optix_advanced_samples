@@ -30,22 +30,15 @@ include_directories(${SAMPLES_INCLUDE_DIR})
 
 OPTIX_add_sample_executable( optixParticleVolumes
   optixParticleVolumes.cpp
-  accum_camera_rbf.cu
-  particles_geometry_rbf.cu
-  particles_material_rbf.cu
-  commonStructs_rbf.h
+  raygen.cu
+  geometry.cu
+  material.cu
+  commonStructs.h
   constantbg.cu
-
-  # common headers
-  #${SAMPLES_INCLUDE_DIR}/commonStructs.h
-  #${SAMPLES_INCLUDE_DIR}/helpers.h
-  #${SAMPLES_INCLUDE_DIR}/intersection_refinement.h
-  #${SAMPLES_INCLUDE_DIR}/random.h
   )
 
 target_link_libraries( optixParticleVolumes
   ${CUDA_LIBRARIES}
-  #${CUDA_cufft_LIBRARY}
   ${CUDA_TOOLKIT_RPATH_FLAG}
   )
 
