@@ -1023,8 +1023,8 @@ int main( int argc, char** argv )
             const unsigned int numframes = 16;
             std::cerr << "Accumulating " << numframes << " frames ..." << std::endl;
             for ( unsigned int frame = 0; frame < numframes; ++frame ) {
-                context["frame_number"]->setFloat( static_cast<float>( frame++ ) );
-                launch_all( camera, photon_launch_dim, frame, photons_buffer, photon_map_buffer );
+                context["frame_number"]->setFloat( static_cast<float>( frame ) );
+                launch_all( camera, photon_launch_dim, frame+1, photons_buffer, photon_map_buffer );
             }
             // Note: the float4 output buffer is written in linear space without gamma correction, 
             // so it won't match the interactive display.  Apply gamma in an image viewer.
