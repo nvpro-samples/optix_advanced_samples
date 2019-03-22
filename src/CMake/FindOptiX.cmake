@@ -63,11 +63,15 @@ endmacro()
 # OptiX SDKs before 5.1.0 named the library optix.1.lib
 # Linux handles this via symlinks and doesn't need changes to the library name.
 set(OptiX_version "1")
+set(OptiX_Utility_version "1")
+# None of the advanced examples is using OptiX Prime.
+# set(OptiX_Prime_version "1")
 
 # The OptiX library is named with the major and minor digits since OptiX 5.1.0.
 # Dynamically find the matching library name by parsing the OptiX_INSTALL_DIR.
 # This only works if the installation retained the original folder format "OptiX SDK major.minor.micro".
 # We want the concatenated major and minor numbers if the version is greater or equal to 5.1.0.
+# Since OptiX 6.0.0 all DLL names use the fully qualifiied version number major.minor.micro
 if(WIN32)
   if(OptiX_INSTALL_DIR)
     string(REPLACE " " ";" OptiX_install_dir_list ${OptiX_INSTALL_DIR})
@@ -76,7 +80,11 @@ if(WIN32)
       # Get the last list element, something like "5.1.0".
       list(GET OptiX_install_dir_list -1 OptiX_version_string)
       # Component-wise integer version number comparison (version format is major[.minor[.patch[.tweak]]]).
-      if(${OptiX_version_string} VERSION_GREATER_EQUAL "5.1.0")
+      if(${OptiX_version_string} VERSION_GREATER_EQUAL "6.0.0")
+        set(OptiX_version ${OptiX_version_string})
+        set(OptiX_Utility_version ${OptiX_version_string})
+        # set(OptiX_Prime_version ${OptiX_version_string})
+      elseif(${OptiX_version_string} VERSION_GREATER_EQUAL "5.1.0")
         set(OptiX_version "")
         string(REPLACE "." ";" OptiX_major_minor_micro_list ${OptiX_version_string})
         foreach(index RANGE 0 1)
@@ -89,18 +97,19 @@ if(WIN32)
 endif(WIN32)
 
 OPTIX_find_api_library(optix ${OptiX_version})
-OPTIX_find_api_library(optixu 1)
-OPTIX_find_api_library(optix_prime 1)
+OPTIX_find_api_library(optixu ${OptiX_Utility_version})
+# None of the advanced examples is using OptiX Prime.
+# OPTIX_find_api_library(optix_prime ${OptiX_Prime_version})
 
 # Include
 find_path(OptiX_INCLUDE
   NAMES optix.h
   PATHS "${OptiX_INSTALL_DIR}/include"
   NO_DEFAULT_PATH
-  )
+)
 find_path(OptiX_INCLUDE
   NAMES optix.h
-  )
+)
 
 # Check to make sure we found what we were looking for
 function(OptiX_report_error error_message required)
@@ -119,9 +128,10 @@ endif()
 if(NOT OptiX_INCLUDE)
   OptiX_report_error("OptiX headers (optix.h and friends) not found. Please set OptiX_INSTALL_DIR to locate them automatically." TRUE)
 endif()
-if(NOT optix_prime_LIBRARY)
-  OptiX_report_error("OptiX Prime library not found. Please set OptiX_INSTALL_DIR to locate it automatically." FALSE)
-endif()
+# None of the advanced examples is using OptiX Prime.
+# if(NOT optix_prime_LIBRARY)
+#   OptiX_report_error("OptiX Prime library not found. Please set OptiX_INSTALL_DIR to locate it automatically." FALSE)
+# endif()
 
 # Macro for setting up dummy targets
 function(OptiX_add_imported_library name lib_location dll_lib dependent_libs)
@@ -162,7 +172,7 @@ endfunction()
 # Sets up a dummy target
 OptiX_add_imported_library(optix "${optix_LIBRARY}" "${optix_DLL}" "${OPENGL_LIBRARIES}")
 OptiX_add_imported_library(optixu "${optixu_LIBRARY}" "${optixu_DLL}" "")
-OptiX_add_imported_library(optix_prime "${optix_prime_LIBRARY}" "${optix_prime_DLL}" "")
+# OptiX_add_imported_library(optix_prime "${optix_prime_LIBRARY}" "${optix_prime_DLL}" "")
 
 macro(OptiX_check_same_path libA libB)
   if(_optix_path_to_${libA})
@@ -187,10 +197,11 @@ if(APPLE)
   endif()
   get_filename_component(_optix_path_to_optixu "${optixu_LIBRARY}" PATH)
   OptiX_check_same_path(optixu optix)
-  get_filename_component(_optix_path_to_optix_prime "${optix_prime_LIBRARY}" PATH)
-  OptiX_check_same_path(optix_prime optix)
-  OptiX_check_same_path(optix_prime optixu)
+  # get_filename_component(_optix_path_to_optix_prime "${optix_prime_LIBRARY}" PATH)
+  # OptiX_check_same_path(optix_prime optix)
+  # OptiX_check_same_path(optix_prime optixu)
 
-  set( optix_rpath ${_optix_rpath} ${_optixu_rpath} ${_optix_prime_rpath} )
+  # set( optix_rpath ${_optix_rpath} ${_optixu_rpath} ${_optix_prime_rpath} )
+  set( optix_rpath ${_optix_rpath} ${_optixu_rpath} )
   list(REMOVE_DUPLICATES optix_rpath)
 endif()
