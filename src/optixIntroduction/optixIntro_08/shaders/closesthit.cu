@@ -78,7 +78,7 @@ RT_PROGRAM void closesthit()
   thePrd.distance = theIntersectionDistance; // Return the current path segment distance, needed for absorption calculations in the integrator.
 
   // Explicitly include edge-on cases as frontface condition!
-  // Keeps the material stack from overflowing at silhouttes.
+  // Keeps the material stack from overflowing at silhouettes.
   // Prevents that silhouettes of thin-walled materials use the backface material.
   // Using the true geometry normal attribute as originally defined on the frontface!
   thePrd.flags |= (0.0f <= optix::dot(thePrd.wo, state.geoNormal)) ? FLAG_FRONTFACE : 0;
@@ -120,7 +120,7 @@ RT_PROGRAM void closesthit()
   // Direct lighting if the sampled BSDF was diffuse and any light is in the scene.
   if ((thePrd.flags & FLAG_DIFFUSE) && 0 < sysNumLights)
   {
-    const float2 sample = rng2(thePrd.seed); // Use higher dimension samples for the position. (Irrelevant for the LCG).
+    const float2 sample = rng2(thePrd.seed); // Use lower dimension samples for the position. (Irrelevant for the LCG).
 
     LightSample lightSample; // Sample one of many lights. 
   

@@ -127,7 +127,7 @@ void PinholeCamera::dolly(int x, int y)
     // m_speedRatio pixels will move one vector length.
     float w = float(m_dy) / m_speedRatio;
     // Adjust the distance, the center of interest stays fixed so that the orbit is around the same center.
-    m_distance -= w * length(m_cameraW); // Dragging down moves the camera forwards. "Drag-in the object".
+    m_distance -= w * optix::length(m_cameraW); // Dragging down moves the camera forwards. "Drag-in the object".
     if (m_distance < 0.001f) // Avoid swapping sides. Scene units are meters [m].
     {
       m_distance = 0.001f;
@@ -142,7 +142,7 @@ void PinholeCamera::focus(int x, int y)
     // m_speedRatio pixels will move one vector length.
     float w = float(m_dy) / m_speedRatio;
     // Adjust the center of interest.
-    setFocusDistance(m_distance - w * length(m_cameraW));
+    setFocusDistance(m_distance - w * optix::length(m_cameraW));
   }
 }
 

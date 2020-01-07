@@ -140,7 +140,7 @@ RT_PROGRAM void closesthit()
   // Direct lighting if the sampled BSDF was diffuse and any light is in the scene.
   if ( /* (thePrd.flags & FLAG_DIFFUSE) && */ 0 < sysNumLights) // No need to check FLAG_DIFFUSE. That has been set one line above. See in optixIntro_07 when this is needed.
   {
-    const float2 sample = rng2(thePrd.seed); // Use higher dimension samples for the position. (Irrelevant for the LCG).
+    const float2 sample = rng2(thePrd.seed); // Use lower dimension samples for the position. (Irrelevant for the LCG).
 
     LightSample lightSample; // Sample one of many lights. 
     

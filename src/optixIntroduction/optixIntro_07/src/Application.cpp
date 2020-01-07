@@ -1613,7 +1613,7 @@ void Application::createScene()
 void Application::setAccelerationProperties(optix::Acceleration acceleration)
 {
   // To speed up the acceleration structure build for triangles, skip calls to the bounding box program and
-  // invoke the special splitting BVH builder for indexed triangles by setting the necessary accelertion properties.
+  // invoke the special splitting BVH builder for indexed triangles by setting the necessary acceleration properties.
   // Using the fast Trbvh builder which does splitting has a positive effect on the rendering performanc as well!
   if (m_builder == std::string("Trbvh") || m_builder == std::string("Sbvh"))
   {

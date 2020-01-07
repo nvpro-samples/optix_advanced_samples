@@ -40,6 +40,7 @@
 rtDeclareVariable(optix::Ray, theRay,                  rtCurrentRay, );
 rtDeclareVariable(float,      theIntersectionDistance, rtIntersectionDistance, );
 
+rtDeclareVariable(PerRayData,        thePrd,       rtPayload, );
 rtDeclareVariable(PerRayData_shadow, thePrdShadow, rtPayload, );
 
 // Attributes.
@@ -64,7 +65,7 @@ RT_PROGRAM void anyhit_cutout() // For the radiance ray type.
   }
 
   // Stochastic alpha test to get an alpha blend effect.
-  if (opacity < 1.0f && opacity <= rng(thePrdShadow.seed)) // No need to calculate an expensive random number if the test is going to fail anyway.
+  if (opacity < 1.0f && opacity <= rng(thePrd.seed)) // No need to calculate an expensive random number if the test is going to fail anyway.
   {
     rtIgnoreIntersection();
   }

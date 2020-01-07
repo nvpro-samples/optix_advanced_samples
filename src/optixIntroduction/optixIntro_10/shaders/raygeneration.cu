@@ -162,7 +162,7 @@ RT_FUNCTION void integrator(PerRayData& prd, float3& radiance
 #if USE_DENOISER_ALBEDO
     // In physical terms, the albedo is a single color value approximating the ratio of radiant exitance to the irradiance under uniform lighting.
     // The albedo value can be approximated for simple materials by using the diffuse color of the first hit,
-    // or for layered materials by using a weighted sum of the individual BRDFs’ albedo values.
+    // or for layered materials by using a weighted sum of the individual BRDFs albedo values.
     // For some objects such as perfect mirrors, the quality of the result might be improved by using the albedo value of a subsequent hit instead.
 
     // When no albedo has been written before and the hit was diffuse or a light, write the albedo.
