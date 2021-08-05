@@ -307,7 +307,6 @@ add_subdirectory(optixHello)
 add_subdirectory(optixGlass)
 add_subdirectory(optixOcean)
 add_subdirectory(optixProgressivePhotonMap)
-add_subdirectory(optixVox)
 add_subdirectory(optixParticleVolumes)
 add_subdirectory(optixIntroduction)
 
