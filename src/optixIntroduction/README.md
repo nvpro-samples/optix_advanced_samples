@@ -1,6 +1,6 @@
 OptiX Introduction Samples
 ==========================
-This is a set of introductory samples for the [NVIDIA OptiX Ray Tracing Engine](https://developer.nvidia.com/optix) which have been developed to accompany the GTC 2018 presentation S8518 "An Introduction to NVIDIA OptiX". The slides and recording of that presentation can be found at [GTC On Demand](http://on-demand-gtc.gputechconf.com/gtcnew/on-demand-gtc.php) publicly about a month after the GTC 2018.
+This is a set of introductory samples for the [NVIDIA OptiX Ray Tracing Engine](https://developer.nvidia.com/optix) which have been developed to accompany the GTC 2018 presentation [S8518 An Introduction to NVIDIA OptiX](https://www.nvidia.com/en-us/on-demand/session/gtcsiliconvalley2018-s8518/). The slides and recording of that presentation can be found at [GTC On Demand](https://www.nvidia.com/en-us/on-demand) publicly about a month after the GTC 2018.
 
 The examples are similar to the existing OptiX Tutorial examples inside the OptiX SDK, but this time with a progressive uni-directional path tracer as foundation to be able to show motion blur and the deep learning denoiser features of the OptiX 5.x version.
 
